@@ -361,14 +361,17 @@ export default function SimulatorPage() {
 
           {/* Monthly budget check */}
           <div className="card p-5">
-            <p className="label-caps mb-3">Monthly budget check</p>
+            <p className="label-caps mb-1">Can you afford these changes?</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--muted-foreground)' }}>
+              Your free cash minus everything you&apos;ve allocated above
+            </p>
             <div className="space-y-2">
               {[
-                { label: 'Available surplus', value: surplus, positive: true },
-                { label: '+ Spending reduction', value: sliders.spendingReduction, positive: true, dim: sliders.spendingReduction === 0 },
-                { label: '− Extra debt payment', value: sliders.extraDebtPayment, positive: false, dim: sliders.extraDebtPayment === 0 },
-                { label: '− Extra savings', value: sliders.extraSavings, positive: false, dim: sliders.extraSavings === 0 },
-                { label: '− Extra investment', value: sliders.extraInvestment, positive: false, dim: sliders.extraInvestment === 0 },
+                { label: 'Free cash (income minus all bills)', value: surplus, positive: true },
+                { label: '+ Freed up by spending less', value: sliders.spendingReduction, positive: true, dim: sliders.spendingReduction === 0 },
+                { label: '− Directed to debt payoff', value: sliders.extraDebtPayment, positive: false, dim: sliders.extraDebtPayment === 0 },
+                { label: '− Directed to savings', value: sliders.extraSavings, positive: false, dim: sliders.extraSavings === 0 },
+                { label: '− Directed to investments', value: sliders.extraInvestment, positive: false, dim: sliders.extraInvestment === 0 },
               ].map((row) => (
                 <div key={row.label} className={cn('flex justify-between text-sm', row.dim ? 'opacity-40' : '')}>
                   <span className="text-[#64748B]">{row.label}</span>
@@ -379,7 +382,7 @@ export default function SimulatorPage() {
               ))}
               <div className="divider my-1" />
               <div className="flex justify-between text-sm font-bold">
-                <span className="text-[#0F172A]">Remaining unallocated</span>
+                <span className="text-[#0F172A]">Left over after all changes</span>
                 <span className={cn('tabular-nums', (surplus + sliders.spendingReduction - sliders.extraDebtPayment - sliders.extraSavings - sliders.extraInvestment) < 0 ? 'text-[#DC2626]' : 'text-[#059669]')}>
                   {formatCurrency(Math.max(0, surplus + sliders.spendingReduction - sliders.extraDebtPayment - sliders.extraSavings - sliders.extraInvestment))}
                 </span>
