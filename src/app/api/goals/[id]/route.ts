@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 const patchSchema = z.object({
@@ -47,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error('[goals PATCH]', error);
+    logger.error('api/goals/[id]', 'PATCH failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -68,7 +69,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[goals DELETE]', error);
+    logger.error('api/goals/[id]', 'DELETE failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

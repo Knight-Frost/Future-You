@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { calculateProjection, assessFinancialHealth } from '@/engine/calculator';
 
@@ -32,7 +33,7 @@ export async function GET() {
 
     return NextResponse.json({ data: profile });
   } catch (error) {
-    console.error('[profile GET]', error);
+    logger.error('api/profile', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -93,7 +94,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ data: profile });
   } catch (error) {
-    console.error('[profile PUT]', error);
+    logger.error('api/profile', 'PUT failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

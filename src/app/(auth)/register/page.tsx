@@ -16,8 +16,8 @@ function AuthInput({
   hasError?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
-  const borderColor = hasError ? '#dc2626' : focused ? 'var(--primary)' : '#D1D9E6';
-  const shadow      = hasError ? '0 0 0 3px rgba(220,38,38,0.12)' : focused ? '0 0 0 3px var(--primary-subtle)' : 'none';
+  const borderColor = hasError ? '#dc2626' : focused ? '#16a34a' : '#D1D9E6';
+  const shadow      = hasError ? '0 0 0 3px rgba(220,38,38,0.12)' : focused ? '0 0 0 3px rgba(22,163,74,0.08)' : 'none';
   return (
     <div>
       {label && (
@@ -218,7 +218,7 @@ export default function RegisterPage() {
             <h1 style={{ fontFamily: "'Crimson Pro', Georgia, serif", fontWeight: 700, fontSize: '2.2rem', color: '#14532d', lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.01em' }}>
               Create your account
             </h1>
-            <div style={{ width: 48, height: 3, borderRadius: 2, background: 'var(--gold-light)', marginBottom: 14 }} />
+            <div style={{ width: 48, height: 3, borderRadius: 2, background: '#E8CC7A', marginBottom: 14 }} />
             <p style={{ fontSize: '0.95rem', color: '#64748B', lineHeight: 1.5 }}>
               Join FutureYou and take control of your financial future.
             </p>
@@ -279,7 +279,7 @@ export default function RegisterPage() {
                     fontSize: '0.95rem', color: '#1a2e1a', outline: 'none',
                     transition: 'border-color 0.15s, box-shadow 0.15s', boxSizing: 'border-box',
                   }}
-                  onFocus={(e) => { if (field !== 'password') { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-subtle)'; e.currentTarget.style.background = '#fff'; } }}
+                  onFocus={(e) => { if (field !== 'password') { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; e.currentTarget.style.background = '#fff'; } }}
                   onBlur={(e) => { if (field !== 'password') { e.currentTarget.style.borderColor = '#D1D9E6'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = '#F8FAFD'; } }}
                 />
                 <button type="button" onClick={() => setShowPw((v) => !v)}
@@ -313,12 +313,12 @@ export default function RegisterPage() {
                   style={{
                     width: '100%', paddingTop: 15, paddingBottom: 15, paddingLeft: 48, paddingRight: 48,
                     borderRadius: 12,
-                    border: `1.5px solid ${passwordMismatch || field === 'confirm' ? '#dc2626' : passwordsMatch ? 'var(--primary)' : '#D1D9E6'}`,
+                    border: `1.5px solid ${passwordMismatch || field === 'confirm' ? '#dc2626' : passwordsMatch ? '#16a34a' : '#D1D9E6'}`,
                     background: passwordMismatch || field === 'confirm' ? '#fef2f2' : '#F8FAFD',
                     fontSize: '0.95rem', color: '#1a2e1a', outline: 'none',
                     transition: 'border-color 0.15s, box-shadow 0.15s', boxSizing: 'border-box',
                   }}
-                  onFocus={(e) => { if (!passwordMismatch && !passwordsMatch) { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-subtle)'; e.currentTarget.style.background = '#fff'; } }}
+                  onFocus={(e) => { if (!passwordMismatch && !passwordsMatch) { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; e.currentTarget.style.background = '#fff'; } }}
                   onBlur={(e) => { if (!passwordMismatch && !passwordsMatch) { e.currentTarget.style.borderColor = '#D1D9E6'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = '#F8FAFD'; } }}
                 />
                 <button type="button" onClick={() => setShowConfirmPw((v) => !v)}
@@ -344,13 +344,13 @@ export default function RegisterPage() {
               <input
                 id="terms" type="checkbox" checked={agreed}
                 onChange={(e) => { setAgreed(e.target.checked); clearError(); }}
-                style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--primary)', flexShrink: 0, cursor: 'pointer' }}
+                style={{ width: 18, height: 18, marginTop: 2, accentColor: '#16a34a', flexShrink: 0, cursor: 'pointer' }}
               />
               <span style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.5 }}>
                 I agree to the{' '}
-                <Link href="/terms" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Terms of Use</Link>
+                <Link href="/terms" style={{ color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>Terms of Use</Link>
                 {' '}and{' '}
-                <Link href="/privacy" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</Link>
+                <Link href="/privacy" style={{ color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>Privacy Policy</Link>
               </span>
             </label>
 
@@ -358,13 +358,13 @@ export default function RegisterPage() {
               type="submit" disabled={loading}
               style={{
                 width: '100%', padding: '15px 24px', borderRadius: 12,
-                background: loading ? '#86EFAC' : 'var(--primary)',
+                background: loading ? '#86EFAC' : '#16a34a',
                 color: '#ffffff', fontSize: '1rem', fontWeight: 700, border: 'none',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s', marginTop: 4, letterSpacing: '0.01em',
               }}
-              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = 'var(--primary-hover)'; }}
-              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = loading ? '#86EFAC' : 'var(--primary)'; }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = '#15803d'; }}
+              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = loading ? '#86EFAC' : '#16a34a'; }}
             >
               {loading ? 'Creating account…' : 'Create account'}
             </button>
@@ -383,7 +383,7 @@ export default function RegisterPage() {
           <div style={{ borderTop: '1px solid #E8EDF5', marginTop: 24, paddingTop: 20, textAlign: 'center' }}>
             <p style={{ fontSize: '0.9rem', color: '#64748B' }}>
               Already have an account?{' '}
-              <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
+              <Link href="/login" style={{ color: '#16a34a', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
             </p>
           </div>
         </div>

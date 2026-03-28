@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // GET /api/transactions/batches
 // Returns all import batches for the user, grouped by importBatchId.
@@ -67,7 +68,7 @@ export async function GET() {
 
     return NextResponse.json({ data: batches });
   } catch (error) {
-    console.error('[transactions/batches GET]', error);
+    logger.error('api/transactions/batches', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

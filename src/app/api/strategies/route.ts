@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 const strategySchema = z.object({
@@ -31,7 +32,7 @@ export async function GET() {
 
     return NextResponse.json({ data: strategies });
   } catch (error) {
-    console.error('[strategies GET]', error);
+    logger.error('api/strategies', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: strategy }, { status: 201 });
   } catch (error) {
-    console.error('[strategies POST]', error);
+    logger.error('api/strategies', 'POST failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

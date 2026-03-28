@@ -16,8 +16,8 @@ function AuthInput({
   hasError?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
-  const borderColor = hasError ? '#dc2626' : focused ? 'var(--primary)' : '#D1D9E6';
-  const shadow      = hasError ? '0 0 0 3px rgba(220,38,38,0.12)' : focused ? '0 0 0 3px var(--primary-subtle)' : 'none';
+  const borderColor = hasError ? '#dc2626' : focused ? '#16a34a' : '#D1D9E6';
+  const shadow      = hasError ? '0 0 0 3px rgba(220,38,38,0.12)' : focused ? '0 0 0 3px rgba(22,163,74,0.08)' : 'none';
   return (
     <div>
       {label && (
@@ -191,15 +191,15 @@ export default function LoginPage() {
             <h1 style={{ fontFamily: "'Crimson Pro', Georgia, serif", fontWeight: 700, fontSize: '2.2rem', color: '#14532d', lineHeight: 1.15, marginBottom: 10, letterSpacing: '-0.01em' }}>
               Log in to your account
             </h1>
-            <div style={{ width: 48, height: 3, borderRadius: 2, background: 'var(--gold-light)', marginBottom: 14 }} />
+            <div style={{ width: 48, height: 3, borderRadius: 2, background: '#E8CC7A', marginBottom: 14 }} />
             <p style={{ fontSize: '0.95rem', color: '#64748B', lineHeight: 1.5 }}>
               Welcome back. Enter your details to continue.
             </p>
           </div>
 
           {/* Demo callout */}
-          <div style={{ background: 'var(--primary-subtle)', border: '1.5px solid rgba(22,163,74,0.18)', borderRadius: 10, padding: '10px 14px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
+          <div style={{ background: 'rgba(22,163,74,0.08)', border: '1.5px solid rgba(22,163,74,0.18)', borderRadius: 10, padding: '10px 14px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 2, flexShrink: 0 }}>
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             <div>
@@ -260,14 +260,14 @@ export default function LoginPage() {
               type="submit" disabled={loading}
               style={{
                 width: '100%', padding: '15px 24px', borderRadius: 12,
-                background: loading ? '#86EFAC' : 'var(--primary)',
+                background: loading ? '#86EFAC' : '#16a34a',
                 color: '#ffffff', fontSize: '1rem', fontWeight: 700, border: 'none',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s, transform 0.1s', marginTop: 4,
                 letterSpacing: '0.01em',
               }}
-              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = 'var(--primary-hover)'; }}
-              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = loading ? '#86EFAC' : 'var(--primary)'; }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = '#15803d'; }}
+              onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = loading ? '#86EFAC' : '#16a34a'; }}
             >
               {loading ? 'Signing in…' : 'Log In'}
             </button>
@@ -288,7 +288,7 @@ export default function LoginPage() {
           <div style={{ borderTop: '1px solid #E8EDF5', marginTop: 24, paddingTop: 20, textAlign: 'center' }}>
             <p style={{ fontSize: '0.9rem', color: '#64748B' }}>
               Don&apos;t have an account?{' '}
-              <Link href="/register" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>
+              <Link href="/register" style={{ color: '#16a34a', fontWeight: 700, textDecoration: 'none' }}>
                 Create an account
               </Link>
             </p>

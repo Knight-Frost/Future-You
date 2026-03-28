@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // PATCH /api/transactions/[id] — user corrects a category (triggers learning)
 export async function PATCH(
@@ -76,7 +77,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error('[transactions PATCH]', error);
+    logger.error('api/transactions/[id]', 'PATCH failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -101,7 +102,7 @@ export async function DELETE(
     await prisma.transaction.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[transactions DELETE]', error);
+    logger.error('api/transactions/[id]', 'DELETE failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

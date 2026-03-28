@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { isRegexSafe } from '@/engine/expense/classification';
 
 // GET /api/expense-rules — list user's rules + system rules
 export async function GET(req: NextRequest) {
@@ -17,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: rules });
   } catch (error) {
-    console.error('[expense-rules GET]', error);
+    logger.error('api/expense-rules', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -46,6 +48,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Invalid patternType. Must be one of: ${validPatternTypes.join(', ')}` }, { status: 400 });
     }
 
+    // Validate regex patterns before storing — prevents ReDoS attacks
+    if (patternType === 'REGEX') {
+      if (!isRegexSafe(pattern)) {
+        return NextResponse.json(
+          { error: 'Invalid or unsafe regex pattern. Ensure it is valid and does not contain nested quantifiers.' },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Pattern length limit (mirrors isRegexSafe's 200-char cap for all types)
+    if (pattern.length > 200) {
+      return NextResponse.json({ error: 'Pattern must be 200 characters or fewer' }, { status: 400 });
+    }
+
     const rule = await prisma.expenseRule.create({
       data: {
         userId: session.user.id,
@@ -60,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: rule }, { status: 201 });
   } catch (error) {
-    console.error('[expense-rules POST]', error);
+    logger.error('api/expense-rules', 'POST failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -87,7 +104,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.expenseRule.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[expense-rules DELETE]', error);
+    logger.error('api/expense-rules', 'DELETE failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

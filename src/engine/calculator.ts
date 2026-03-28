@@ -167,7 +167,17 @@ export function calculateProjection(
   // ── Baseline cashflow ───────────────────────────────────────────────────────
   const monthlyRemaining = monthlyIncome - monthlyExpenses;           // gross surplus (before debt & investment)
   const netSurplus       = monthlyRemaining - debtMonthlyPayment - monthlyInvestment; // true cash left after all obligations
-  const savingsRate      = monthlyIncome > 0 ? netSurplus / monthlyIncome : 0;
+
+  // Savings rate = fraction of income available for wealth-building after all
+  // fixed obligations (expenses + debt). Investments are drawn from this pool,
+  // not added on top of it — so the rate is simply:
+  //   max(0, income − expenses − debtPayment) / income
+  //
+  // The previous formula used netSurplus (which subtracted monthlyInvestment),
+  // causing someone who invests $1 000/mo to show a LOWER savings rate than
+  // someone who invests nothing. Fixed here.
+  const cashAfterDebt = monthlyRemaining - debtMonthlyPayment;
+  const savingsRate   = monthlyIncome > 0 ? Math.max(0, cashAfterDebt) / monthlyIncome : 0;
 
   // Free surplus available to direct toward goals (never negative)
   const surplusAfterDebt = Math.max(0, netSurplus);
@@ -227,7 +237,7 @@ export function calculateProjection(
   }
 
   // ── Ratios ──────────────────────────────────────────────────────────────────
-  const debtToIncomeRatio  = monthlyIncome > 0 ? debtMonthlyPayment / monthlyIncome : 0;
+  const debtToIncomeRatio   = monthlyIncome > 0 ? debtMonthlyPayment / monthlyIncome : 0;
   const emergencyFundMonths = monthlyExpenses > 0 ? currentSavings / monthlyExpenses : 0;
   const anySliderMoved     = spendingReduction !== 0 || extraDebtPayment !== 0 || extraSavings !== 0 || extraInvestment !== 0;
 
@@ -271,24 +281,34 @@ export function assessFinancialHealth(
   inputs: FinancialInputs
 ): HealthStatus {
   const { monthlyRemaining, savingsRate, debtToIncomeRatio, emergencyFundMonths } = projection;
-  const { debtBalance, debtAnnualRate } = inputs;
+  const { debtBalance, debtAnnualRate, debtMonthlyPayment } = inputs;
 
   // ── Critical ───────────────────────────────────────────────────────────────
-  if (monthlyRemaining <= 0) return 'critical';
-  // High DTI AND no safety net — one missed paycheck from crisis
-  if (debtToIncomeRatio > 0.40 && emergencyFundMonths < 0.5) return 'critical';
+
+  // FIX: use cash after debt obligations, not pre-debt surplus.
+  // The old check (monthlyRemaining <= 0) only caught "income < expenses",
+  // missing the case where income covers expenses but debt payments create a
+  // true deficit (e.g. monthlyRemaining = +$200, debtPayment = $500 → -$300).
+  const cashAfterObligations = monthlyRemaining - debtMonthlyPayment;
+  if (cashAfterObligations <= 0) return 'critical';
+
+  // FIX: a DTI above 50% is critical by itself — half the person's income
+  // services debt regardless of emergency fund size.
+  if (debtToIncomeRatio > 0.50) return 'critical';
+
+  // High DTI + thin safety net — one missed paycheck from crisis.
+  // Raised EF threshold from 0.5 → 1 month: half a month is not a meaningful buffer.
+  if (debtToIncomeRatio > 0.40 && emergencyFundMonths < 1) return 'critical';
 
   // ── Component flags ────────────────────────────────────────────────────────
-  const hasHighInterestDebt = debtBalance > 500 && debtAnnualRate > 0.10;
-  const goodSavingsRate     = savingsRate >= 0.15;
-  // BUG FIX: was * 1 (1 month). Standard minimum for 'strong' is 3 months of expenses.
+  const hasHighInterestDebt      = debtBalance > 500 && debtAnnualRate > 0.10;
+  const goodSavingsRate          = savingsRate >= 0.15;
   const hasAdequateEmergencyFund = emergencyFundMonths >= 3;
 
   // ── Strong: positive on all three fronts ──────────────────────────────────
   if (goodSavingsRate && !hasHighInterestDebt && hasAdequateEmergencyFund) return 'strong';
 
   // ── Healthy: no high-interest debt, reasonable savings rate, at least 1 month EF
-  // BUG FIX: was missing emergency fund check entirely.
   if (!hasHighInterestDebt && savingsRate >= 0.08 && emergencyFundMonths >= 1) return 'healthy';
 
   return 'attention';

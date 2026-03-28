@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 const settingsSchema = z.object({
@@ -23,7 +24,7 @@ export async function GET() {
 
     return NextResponse.json({ data: settings });
   } catch (error) {
-    console.error('[settings GET]', error);
+    logger.error('api/settings', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -50,7 +51,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ data: settings });
   } catch (error) {
-    console.error('[settings PUT]', error);
+    logger.error('api/settings', 'PUT failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

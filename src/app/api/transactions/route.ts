@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 // GET /api/transactions — fetch paginated transactions
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: tx }, { status: 201 });
   } catch (error) {
-    console.error('[transactions POST]', error);
+    logger.error('api/transactions', 'POST failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

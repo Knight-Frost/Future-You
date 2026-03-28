@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { aggregateByCategory, CATEGORY_META } from '@/engine/expense/classification';
 
 // GET /api/transactions/analytics — aggregated spending data for charts
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       orderBy: { date: 'asc' },
     });
   } catch (error) {
-    console.error('[transactions/analytics GET]', error);
+    logger.error('api/transactions/analytics', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 

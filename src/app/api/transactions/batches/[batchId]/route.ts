@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // DELETE /api/transactions/batches/[batchId]
 // Removes all transactions in the batch, then recalculates the financial profile.
@@ -32,7 +33,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, deleted: count });
   } catch (error) {
-    console.error('[transactions/batches DELETE]', error);
+    logger.error('api/transactions/batches/[batchId]', 'DELETE failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

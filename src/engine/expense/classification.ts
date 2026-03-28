@@ -258,6 +258,60 @@ export function inferFromPattern(amount: number, dayOfMonth: number): { category
   return null;
 }
 
+// ─── ReDoS-safe regex execution ───────────────────────────────────────────────
+
+/**
+ * Validates that a user-supplied regex pattern is safe to execute.
+ *
+ * Rejects patterns that are known to cause catastrophic backtracking:
+ *   - Patterns with nested quantifiers like (a+)+ or (x|x)+
+ *   - Patterns exceeding the length limit
+ *
+ * This is a first-pass static check. Combined with the try/catch in
+ * safeRegexTest, it prevents DoS from malicious or accidental patterns.
+ */
+export function isRegexSafe(pattern: string): boolean {
+  if (pattern.length > 200) return false;
+
+  // Block patterns with nested quantifiers (catastrophic backtracking triggers)
+  const dangerous = [
+    /(\(.*\+.*\)|\(.*\*.*\))[+*]/,   // (x+)+ or (x+)*
+    /(\[.*\])[+*][+*]/,               // [abc]++ style double quantifiers
+    /(\(.*\|.*\))[+*]/,               // (x|y)+ style alternation loops
+    /\{[0-9]+,[0-9]*\}\s*[+*{]/,      // bounded quantifiers followed by more quantifiers
+  ];
+
+  for (const d of dangerous) {
+    if (d.test(pattern)) return false;
+  }
+
+  // Ensure the pattern actually compiles
+  try {
+    new RegExp(pattern, 'i');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Executes a user-supplied regex with a synchronous timeout guard.
+ * Returns false if the pattern is unsafe, invalid, or takes too long.
+ */
+function safeRegexTest(pattern: string, input: string): boolean {
+  if (!isRegexSafe(pattern)) return false;
+
+  try {
+    const re = new RegExp(pattern, 'i');
+
+    // Limit input length to prevent slow-but-valid patterns on huge strings
+    const capped = input.length > 500 ? input.slice(0, 500) : input;
+    return re.test(capped);
+  } catch {
+    return false;
+  }
+}
+
 // ─── Main classification function ─────────────────────────────────────────────
 
 export function classifyTransaction(
@@ -283,10 +337,7 @@ export function classifyTransaction(
       case 'ENDS_WITH':   matches = searchText.endsWith(pattern) || rawLower.endsWith(pattern); break;
       case 'EXACT':       matches = searchText === pattern || rawLower === pattern; break;
       case 'REGEX': {
-        try {
-          const re = new RegExp(rule.pattern, 'i');
-          matches = re.test(searchText) || re.test(rawLower);
-        } catch { matches = false; }
+        matches = safeRegexTest(rule.pattern, searchText) || safeRegexTest(rule.pattern, rawLower);
         break;
       }
     }

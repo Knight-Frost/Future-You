@@ -536,8 +536,8 @@ export default function AnalyticsReportsPage() {
 
   return (
     <>
-      {/* Print styles */}
-      <style>{`
+      {/* Print styles — dangerouslySetInnerHTML prevents SSR escaping body > * to body &gt; * */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           body > * { display: none !important; }
           #print-report-wrapper { display: block !important; }
@@ -546,7 +546,7 @@ export default function AnalyticsReportsPage() {
         @media screen {
           #print-report-wrapper { display: none; }
         }
-      `}</style>
+      ` }} />
 
       {/* ── Screen UI ─────────────────────────────────────────────────────── */}
       <div className="space-y-8 animate-fade-in no-print">

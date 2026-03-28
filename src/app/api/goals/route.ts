@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 const goalSchema = z.object({
@@ -28,7 +29,7 @@ export async function GET() {
 
     return NextResponse.json({ data: goals });
   } catch (error) {
-    console.error('[goals GET]', error);
+    logger.error('api/goals', 'GET failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: goal }, { status: 201 });
   } catch (error) {
-    console.error('[goals POST]', error);
+    logger.error('api/goals', 'POST failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

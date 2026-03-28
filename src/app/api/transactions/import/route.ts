@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { parseCSVToTransactions } from '@/engine/expense/pipeline';
+
+// 5 MB expressed in UTF-8 characters — a CSV of this size is ~50,000+ transactions
+const MAX_CSV_CHARS = 5 * 1024 * 1024;
 
 // POST /api/transactions/import — full pipeline CSV import
 export async function POST(req: NextRequest) {
@@ -20,6 +24,13 @@ export async function POST(req: NextRequest) {
 
   if (!csvText || typeof csvText !== 'string') {
     return NextResponse.json({ error: 'csvText is required' }, { status: 400 });
+  }
+
+  if (csvText.length > MAX_CSV_CHARS) {
+    return NextResponse.json(
+      { error: 'CSV file is too large. Maximum size is 5 MB.' },
+      { status: 413 },
+    );
   }
 
   try {
@@ -101,7 +112,7 @@ export async function POST(req: NextRequest) {
     importBatchId,
   });
   } catch (error) {
-    console.error('[transactions/import POST]', error);
+    logger.error('api/transactions/import', 'Import failed', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
