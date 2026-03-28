@@ -1,481 +1,437 @@
-# FutureYou — Architectural Plan
-**Personal Financial Decision Engine**
-Version 1.0 | March 2026
+# FutureYou — System Architecture
+
+**Version:** 1.0
+**Last Updated:** 2026-03-28
 
 ---
 
 ## 1. System Overview
 
-FutureYou is a client-side financial decision engine that answers one question:
+FutureYou is a full-stack personal financial decision engine built on Next.js 14 App Router. Its defining characteristic is a synchronous, client-side financial projection engine that recalculates a user's entire financial future within a single render frame whenever any input changes.
 
-> "What happens to my financial future if I change this behavior today?"
-
-### What It Solves
-
-Traditional finance apps are backward-looking — they track what already happened. FutureYou is forward-looking. It projects consequences of decisions in real time and tells users what to do next.
-
-### How It Differs
-
-| Dimension         | Traditional Finance App    | FutureYou                        |
-|-------------------|----------------------------|----------------------------------|
-| Orientation       | Past (tracking)            | Future (projection)              |
-| User interaction  | Data entry                 | Scenario exploration             |
-| Output            | Reports and charts         | Decisions and recommendations    |
-| Feedback loop     | Weekly / monthly review    | Instant, slider-driven           |
-| Primary question  | "Where did my money go?"   | "What should I do next?"         |
-
----
-
-## 2. Architectural Philosophy
-
-### Decision Engine, Not a Tracker
-
-The system is organized around the consequence of a decision, not the recording of a transaction. Every component exists to answer: "If I change X, what happens to Y?"
-
-### Real-Time Feedback Design
-
-The feedback loop is the product. A user must be able to move a slider and see the consequence of that choice within a single animation frame. Any latency breaks the core experience.
-
-### Simplicity and Performance First
-
-- No backend is required for MVP
-- No network calls block the user interface
-- The insight layer runs asynchronously and never delays rendering
-- Complexity is deferred to future scaling phases
-
----
-
-## 3. High-Level Architecture
+The system is organized around one loop:
 
 ```
-+----------------------------------------------------------+
-|                        USER                              |
-+----------------------------------------------------------+
-                            |
-                     Input / Sliders
-                            |
-                            v
-+----------------------------------------------------------+
-|                     UI LAYER                             |
-|   Input Forms | Sliders | Charts | Recommendation Cards  |
-+----------------------------------------------------------+
-                            |
-                     State Events
-                            |
-                            v
-+----------------------------------------------------------+
-|                 FINANCIAL ENGINE                         |
-|   Pure functions | Projection Models | Goal Calculator   |
-+----------------------------------------------------------+
-                            |
-                     Computed Results
-                            |
-              +-------------+-------------+
-              |                           |
-              v                           v
-+---------------------+     +------------------------+
-|    DISPLAY LAYER    |     |     INSIGHT ENGINE     |
-|  Charts | Timelines |     |  Rules | Suggestions   |
-|  Goal Counters      |     |  (async, non-blocking) |
-+---------------------+     +------------------------+
+DECISION  -->  CONSEQUENCE  -->  ACTION
 ```
 
-Data flows in one direction. The Financial Engine is pure — it takes inputs, returns outputs, and holds no state.
+Every architectural decision is evaluated against whether it supports or disrupts this loop.
 
 ---
 
-## 4. Component Breakdown
+## 2. High-Level Architecture
 
-| Component          | Responsibility                                      | Key Behavior                                                   |
-|--------------------|-----------------------------------------------------|----------------------------------------------------------------|
-| Input System       | Collect baseline financial data from the user       | Validates and normalizes inputs into a standard financial model |
-| Slider System      | Allow real-time adjustment of financial variables   | Triggers state updates on every change; debounced for AI calls |
-| Calculation Engine | Project financial outcomes from current state       | Pure functions; no side effects; runs synchronously on client  |
-| Insight Engine     | Generate actionable recommendations from results    | Rule-based for MVP; async AI calls deferred and non-blocking   |
-| Display Layer      | Render results, charts, timelines, and goal status  | Reactive to state; re-renders only changed regions             |
+```
++------------------------------------------------------------------+
+|                          BROWSER                                 |
+|                                                                  |
+|  +------------------+     +----------------------------------+   |
+|  |  Zustand Store   |     |     Financial Engine             |   |
+|  |  (inputs,        | --> |     calculateProjection()        |   |
+|  |   sliders)       |     |     [synchronous, < 5ms]         |   |
+|  +------------------+     +----------------------------------+   |
+|           |                              |                       |
+|           |                              v                       |
+|           |               +----------------------------------+   |
+|           |               |     UI Components                |   |
+|           |               |     (re-render on change only)   |   |
+|           |               +----------------------------------+   |
+|           |                                                      |
+|           |--- POST /api/ai/insights (async, 800ms debounce)     |
+|           |--- POST /api/goals, /api/scenarios (on user action)  |
+|           |--- GET  /api/profile (on page load)                  |
+|                                                                  |
++------------------------------------------------------------------+
+                              |
+                    Next.js Server (API Routes)
+                              |
+                    +------------------+
+                    |   Prisma ORM     |
+                    +------------------+
+                              |
+                    +------------------+
+                    |   PostgreSQL     |
+                    +------------------+
+```
+
+Data flows in one direction. The Financial Engine is pure — given the same inputs, it always returns the same outputs. It holds no state and has no side effects.
 
 ---
 
-## 5. Data Flow
+## 3. Layer Responsibilities
+
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Client State | Zustand | Holds financial inputs and simulator sliders; persists to localStorage; exposes typed update functions |
+| Financial Engine | TypeScript (pure functions) | Computes projections, amortization, strategies, and insights synchronously from state |
+| UI | Next.js / React | Renders results reactively; re-renders only components whose inputs have changed |
+| API Routes | Next.js Route Handlers | Handles authentication, database operations, and server-side AI calls |
+| AI Layer | Anthropic API (server-side) | Generates personalized 2-3 sentence insight after an 800ms debounce; non-blocking |
+| Database | PostgreSQL + Prisma | Persists user profiles, goals, snapshots, transactions, and settings |
+| Authentication | NextAuth v5 | JWT sessions with credentials provider; route protection via middleware |
+
+---
+
+## 4. Data Flow
+
+### 4.1 Synchronous Path (Core Loop)
+
+The following sequence completes entirely within one browser render cycle. No network calls are permitted in this path.
 
 ```
-[1] User Input
+[1] User Input (slider move or field change)
+         |
+         | (Zustand updateInputs or updateSliders)
+         v
+[2] Store State Updated
+         |
+         | (React re-renders consuming components)
+         v
+[3] calculateProjection(inputs, sliders) called inline
+         |
+         | (pure function, < 5ms)
+         v
+[4] FinancialProjection returned
+         |
+         | (passed as props to display components)
+         v
+[5] UI Updated — all metrics, charts, and timelines reflect new values
+```
+
+### 4.2 Asynchronous Path (AI Insight)
+
+The AI path runs after the synchronous path has already rendered. It does not block any UI update.
+
+```
+[1] User stops interacting (800ms debounce elapses)
+         |
+         v
+[2] POST /api/ai/insights
+         |  body: { inputs, projection, ruleInsight }
+         v
+[3] Server authenticates request, calls Anthropic API
+         |  model: claude-haiku-4-5
+         |  max_tokens: 200
+         v
+[4] Personalized insight returned as plain text
+         |
+         v
+[5] Insight card updates in place (non-blocking)
+```
+
+If the Anthropic API is unavailable, step 5 is skipped and the rule-based insight (rendered in step 5 of the synchronous path) remains visible.
+
+### 4.3 Persistence Path (On User Action)
+
+Database writes occur only when the user explicitly takes an action. They are never triggered automatically by slider moves or input changes.
+
+```
+User Action --> API Route --> Prisma --> PostgreSQL
+```
+
+| Action | API Route | Database Write |
+|---|---|---|
+| Save financial profile | POST /api/profile | Updates FinancialProfile |
+| Add a goal | POST /api/goals | Creates Goal record |
+| Save simulator scenario | POST /api/scenarios | Creates Scenario record |
+| Import transactions | POST /api/transactions/import | Creates Transaction records |
+| Complete onboarding step | POST /api/onboarding | Updates User and FinancialProfile |
+
+---
+
+## 5. Financial Engine Design
+
+The engine is located in `src/engine/` and is composed of three modules. All functions are exported and individually testable.
+
+### 5.1 calculator.ts
+
+The primary projection module. Contains all mathematical models used across the application.
+
+| Function | Input | Output | Notes |
+|---|---|---|---|
+| `calculateProjection` | `FinancialInputs`, `SimulatorSliders?` | `FinancialProjection` | Calls all other functions; entry point for the engine |
+| `futureValueAnnuity` | `PMT`, `annualRate`, `years` | `number` | Standard future value of annuity with monthly compounding |
+| `futureValueLumpSum` | `principal`, `annualRate`, `years` | `number` | Future value of a one-time deposit |
+| `simulateLoan` | `balance`, `payment`, `annualRate` | `{ months, totalInterest }` | Month-by-month amortization; source of truth for interest |
+| `calcTotalInterest` | `balance`, `payment`, `annualRate` | `number` | Wraps `simulateLoan.totalInterest` |
+| `calcDebtPayoffMonths` | `balance`, `payment`, `annualRate` | `number` | Closed-form equivalent of `simulateLoan.months` |
+| `calcSavingsMonths` | `currentSavings`, `contribution`, `target` | `number` | Linear savings timeline (no interest) |
+| `assessFinancialHealth` | `FinancialProjection`, `FinancialInputs` | `HealthStatus` | Returns `strong`, `healthy`, `attention`, or `critical` |
+
+**Investment return rate constants:**
+
+| Scenario | Rate |
+|---|---|
+| Conservative | 5.0% annually |
+| Moderate | 7.0% annually |
+| Optimistic | 9.0% annually |
+
+### 5.2 insights.ts
+
+The insight module operates in two modes:
+
+**Rule-based (synchronous):**
+`evaluateRules(inputs, projection) -> InsightResult`
+
+Evaluates the financial state against a priority hierarchy and returns a single categorized insight.
+
+| Priority | Trigger Condition |
+|---|---|
+| CRITICAL | `netSurplus < 0` — expenses exceed income |
+| HIGH | Debt APR > 15% and balance > 0 |
+| HIGH | Emergency fund < 1 month of expenses |
+| MEDIUM | Savings rate < 10% |
+| MEDIUM | Monthly investment = 0 |
+| LOW | All metrics within healthy thresholds |
+
+**AI prompt builder:**
+`buildAIPrompt(AIInsightRequest) -> string`
+
+Constructs a structured prompt for the server-side AI call. Includes the user's full financial context and the rule-based insight so the AI can provide a more specific recommendation rather than repeating the same guidance.
+
+### 5.3 optimizer.ts
+
+Generates three named debt payoff strategies with feasibility decomposition.
+
+| Function | Description |
+|---|---|
+| `generateStrategies(inputs)` | Returns up to three `OptimizationResult` objects: Reduce Spending, Boost Payments, and Combined |
+| `findPaymentForTarget(balance, rate, targetMonths)` | Binary search to determine the exact monthly payment required to pay off debt within a given number of months |
+| `decomposePaymentIncrease(required, inputs)` | Breaks down the required extra payment into human-readable sources (available surplus, investment reallocation, spending cuts, income gap) |
+
+Each strategy includes:
+- `status`: `feasible` | `infeasible` | `already_achieved` | `no_target`
+- `isTotallyFeasible`: whether the required payment can be sourced from available funds
+- `actions`: array of specific recommended changes with amounts and sources
+
+---
+
+## 6. State Management
+
+### 6.1 Zustand Store
+
+All client state is held in a single Zustand store (`src/stores/useFinancialStore.ts`).
+
+```
+Store Shape {
+  inputs:    FinancialInputs      // Persisted to localStorage
+  sliders:   SimulatorSliders     // Persisted to localStorage
+  aiInsight: string | null        // Session only; not persisted
+  aiLoading: boolean              // Session only
+  hydrated:  boolean              // True after localStorage is read
+}
+```
+
+The store uses Zustand's `persist` middleware with the key `'futureyou-financial'`. Only `inputs` and `sliders` are included in the persisted subset.
+
+### 6.2 Why Projection Is Not in the Store
+
+`FinancialProjection` is a derived value — it is a pure function of `inputs` and `sliders`. Storing it in state would create a synchronization problem: the store would need to be updated every time inputs change, and any consumer that reads the projection before the store update completes would see stale data.
+
+Instead, every component that needs the projection calls `calculateProjection(inputs, sliders)` directly or receives it as a prop from a parent that does so. Because the function runs in under 5ms, this is cheaper than managing projection in state.
+
+### 6.3 Persistence and Hydration
+
+On first render, the store is in an unhydrated state. The `hydrated` flag is set to `true` once localStorage has been read. Components that display financial data should check this flag to avoid rendering stale default values before the user's persisted inputs are loaded.
+
+---
+
+## 7. Insight System Architecture
+
+```
++------------------------------------------------------------+
+|                    USER INTERACTION                        |
++------------------------------------------------------------+
+         |                              |
+         v                             (800ms debounce)
++------------------+                   |
+|  Rule Engine     |                   v
+|  evaluateRules() |          +------------------+
+|  [synchronous]   |          |  AI API Call     |
+|  < 5ms           |          |  [asynchronous]  |
++------------------+          +------------------+
+         |                             |
+         v                             v
++------------------+          +------------------+
+|  Insight card    |          |  Insight card    |
+|  updates         |          |  refreshes       |
+|  immediately     |          |  when ready      |
++------------------+          +------------------+
+```
+
+### Behavioral Rules
+
+| Rule | Requirement |
+|---|---|
+| The rule engine must never be awaited | Its result is available within the same render cycle as the input change |
+| The AI layer must never block UI rendering | It runs after the synchronous path has already completed |
+| AI calls must be debounced by 800ms minimum | Prevents API calls during active slider interaction |
+| The UI must degrade gracefully if AI is unavailable | Rule-based insight remains visible; no error is shown |
+| AI calls require an authenticated session | The route handler checks the session before making the API call |
+
+---
+
+## 8. Transaction Classification Pipeline
+
+Imported CSV transactions pass through a three-stage pipeline before storage.
+
+```
++--------------------+
+|  Raw CSV Row       |
+|  date, description |
+|  amount            |
++--------------------+
+         |
+         v
++--------------------+
+|  Normalization     |
+|  - Strip merchant  |
+|    suffix codes    |
+|  - Normalize       |
+|    whitespace      |
+|  - Extract amount  |
+|    sign (debit/    |
+|    credit)         |
++--------------------+
+         |
+         v
++--------------------+
+|  Classification    |
+|  Priority order:   |
+|  1. User rules     |
+|  2. System rules   |
+|  3. Keyword match  |
+|  4. Pattern        |
+|     inference      |
+|  5. Fallback       |
+|     (MISC)         |
++--------------------+
+         |
+         v
++--------------------+
+|  Deduplication     |
+|  SHA-256 hash of   |
+|  (date + amount +  |
+|   normalizedName)  |
+|  Reject duplicates |
++--------------------+
+         |
+         v
++--------------------+
+|  Transaction       |
+|  record written    |
+|  with confidence   |
+|  score (0-100)     |
++--------------------+
+```
+
+Classification confidence is stored per transaction. Users can correct misclassifications, and corrections are recorded with a timestamp. User-defined rules take priority over all system rules on subsequent imports.
+
+---
+
+## 9. Authentication and Route Protection
+
+NextAuth v5 is configured in `src/lib/auth.ts` with a credentials provider. Passwords are hashed with bcrypt before storage.
+
+Route protection is enforced by `src/middleware.ts`, which runs on every request before the page renders.
+
+```
+Request arrives
       |
-      | (form submission or slider move)
       v
-[2] State Update
+middleware.ts checks NextAuth session
       |
-      | (centralized state store updated)
-      v
-[3] Calculation Engine
+      +-- Session valid --> Request proceeds
       |
-      | (pure functions compute projection, goal timeline, delta)
-      v
-[4] UI Update
+      +-- Session invalid, route is /(app)/* --> Redirect to /login
       |
-      | (display layer re-renders instantly with new results)
-      v
-[5] Insight Generation
+      +-- Session invalid, route is /(onboarding)/* --> Redirect to /login
       |
-      | (rule engine evaluates results; AI call if configured)
-      v
-[6] Recommendation Displayed
+      +-- Session invalid, route is /(auth)/* --> Request proceeds (login/register)
 ```
 
-Steps 1–4 are synchronous and complete within a single render cycle.
-Step 5 is asynchronous and does not block step 4.
+API routes validate the session independently using `auth()` from the NextAuth configuration. A missing or invalid session returns HTTP 401.
 
 ---
 
-## 6. Real-Time Processing Model
+## 10. Performance Model
 
-### Why Frontend-Based Calculation
+### Constraints
 
-- Eliminates network latency entirely
-- No server required for core functionality
-- Calculations are mathematical projections — no database needed
-- Runs offline without degradation
+The following are enforced system requirements, not targets. Any implementation that violates them must be redesigned.
 
-### How Instant Updates Are Achieved
-
-1. Slider emits a value change event
-2. State store is updated synchronously
-3. Calculation Engine runs pure functions against new state
-4. React (or equivalent) re-renders only the affected components
-5. Full cycle completes in under 16ms (one frame at 60fps)
-
-### Performance Constraints
-
-| Concern               | Strategy                                                    |
-|-----------------------|-------------------------------------------------------------|
-| Slider lag            | State updates are synchronous; no async in the hot path     |
-| Expensive projections | Memoize results keyed on input hash; recompute only on change |
-| Chart re-renders      | Use virtualized or canvas-based charts; avoid DOM thrashing |
-| AI insight latency    | Debounce AI calls by 800ms; render results when ready       |
-
----
-
-## 7. Insight Engine Design
-
-### MVP: Rule-Based Logic
-
-The insight engine evaluates the computed financial state against a set of deterministic rules.
-
-Examples:
-- If savings rate < 10%, recommend increasing by a specific amount
-- If goal timeline > 10 years, flag high-impact levers the user can adjust
-- If debt-to-income > 40%, prioritize debt reduction path
-
-Rules are stored as configuration — not hardcoded logic — so they can be updated without changing the engine.
-
-### Future: AI Integration
-
-When AI recommendations are enabled:
-
-```
-Calculation Result
-      |
-      | (debounce 800ms)
-      v
-AI API Call (async, background)
-      |
-      v
-Insight Panel Updates (non-blocking)
-```
-
-The UI renders rule-based insights immediately. AI insights appear when ready, replacing or supplementing them. The user experience is never blocked.
-
-### Debounce Strategy
-
-| Event Type       | Debounce Delay | Reason                                   |
-|------------------|----------------|------------------------------------------|
-| Slider move      | 800ms          | Avoid API calls mid-drag                 |
-| Form field edit  | 1200ms         | User likely still typing                 |
-| Explicit submit  | 0ms            | User has signaled intent; call immediately |
-
----
-
-## 8. State Management Strategy
-
-### Where Data Lives
-
-All state is held in a single centralized store on the client. There is no server-side session for MVP.
-
-```
-+-------------------------------+
-|        Central State          |
-|-------------------------------|
-|  financialInputs              |  <-- user-entered baseline data
-|  sliderValues                 |  <-- current scenario adjustments
-|  computedProjection           |  <-- output of Calculation Engine
-|  insights                     |  <-- output of Insight Engine
-+-------------------------------+
-```
-
-### How Updates Propagate
-
-1. User interaction mutates `financialInputs` or `sliderValues`
-2. A selector or derived state function triggers the Calculation Engine
-3. `computedProjection` updates
-4. Display Layer re-renders reactively
-5. Insight Engine is notified asynchronously
-
-### Why Centralized State
-
-- Single source of truth prevents inconsistent UI states
-- All components derive from the same computed projection
-- Easier to debug, test, and extend
-- Enables undo / history (future feature) with minimal change
-
----
-
-## 9. Scalability Considerations
-
-FutureYou is designed to scale incrementally without breaking the existing architecture.
-
-### Phase 2: Backend API
-
-- Financial Engine logic is extracted to a shared library
-- API layer wraps the same pure functions
-- Client falls back to local computation if API is unavailable
-
-### Phase 3: Data Persistence
-
-- User financial profiles saved to a database
-- Scenario history stored per user
-- No change to the core calculation or insight architecture
-
-### Phase 4: User Accounts
-
-- Authentication added as a wrapper layer
-- State store gains a sync mechanism
-- Local state remains the primary source during a session
-
-```
-MVP:     [Client] → [Engine] → [Display]
-Phase 2: [Client] → [API] → [Engine] → [Display]
-Phase 3: [Client] → [API] → [Engine + DB] → [Display]
-Phase 4: [Client + Auth] → [API] → [Engine + DB] → [Display]
-```
-
-Each phase is additive. The core loop does not change.
-
----
-
-## 10. Design Principles
-
-| Principle          | Application                                                           |
-|--------------------|-----------------------------------------------------------------------|
-| Simplicity         | One core loop: Decision → Consequence → Action                        |
-| Speed              | All critical calculations run synchronously on the client             |
-| Clarity            | Every output maps directly to a decision the user can take            |
-| Immediate feedback | Slider changes reflect in results within a single frame               |
-| Actionable insight | Every recommendation tells the user exactly what to do next           |
-| Non-blocking AI    | Insight generation never delays the rendering of core results         |
-| Modular design     | Each component has one responsibility and can be replaced in isolation |
-| Offline-first      | Core functionality requires no network connection                     |
-
----
-
-## 11. Demo Execution Architecture
-
-This section defines the exact system behavior during a live demonstration or real user session.
-
-### Interaction Sequence
-
-```
-+-------+   [1] Move Slider        +---------------+
-| USER  | -----------------------> |   UI LAYER    |
-+-------+                          +---------------+
-                                          |
-                              [2] Synchronous state update
-                                          |
-                                          v
-                                  +---------------+
-                                  | CALC ENGINE   |  <-- instant (~1ms)
-                                  +---------------+
-                                          |
-                              [3] Computed result returned
-                                          |
-                                          v
-                                  +---------------+
-                                  | DISPLAY LAYER |  <-- renders new values
-                                  +---------------+
-                                          |
-                              [4] Debounce timer starts (800ms)
-                                          |
-                                          v
-                                  +---------------+
-                                  | INSIGHT ENGINE|  <-- background, async
-                                  +---------------+
-                                          |
-                              [5] Recommendation card updates
-```
+| Rule | Requirement |
+|---|---|
+| P-01 | All financial calculations complete within 16ms |
+| P-02 | No network call is permitted in the synchronous update path |
+| P-03 | No spinner or loading state is shown during core recalculation |
+| P-04 | The AI layer must never block UI rendering |
+| P-05 | AI calls are debounced by a minimum of 800ms |
+| P-06 | `calculateProjection` must have no side effects |
+| P-07 | Identical inputs must not trigger a re-render of downstream components |
 
 ### Operation Classification
 
-| Operation                        | Type         | Timing           | Blocks UI |
-|----------------------------------|--------------|------------------|-----------|
-| State update on slider change    | Synchronous  | Immediate        | No        |
-| Financial Engine recalculation   | Synchronous  | < 16ms           | No        |
-| Chart and timeline re-render     | Synchronous  | < 16ms           | No        |
-| Rule-based insight evaluation    | Synchronous  | < 5ms            | No        |
-| AI recommendation API call       | Asynchronous | 800ms+ debounced | No        |
-| Insight panel update (AI result) | Asynchronous | When ready       | No        |
-
-The user perceives steps 1–4 as instantaneous. Step 5 is a progressive enhancement.
+| Operation | Type | Maximum Time | Blocks UI |
+|---|---|---|---|
+| Zustand state update | Synchronous | < 1ms | No |
+| `calculateProjection` | Synchronous | < 5ms | No |
+| Rule engine (`evaluateRules`) | Synchronous | < 5ms | No |
+| React re-render cycle | Synchronous | < 16ms | No |
+| Database read on page load | Asynchronous | < 500ms | No |
+| AI insight API call | Asynchronous | 800ms debounce + response | No |
 
 ---
 
-## 12. Core Decision Loop Integration
+## 11. Scalability Path
 
-The entire architecture is an implementation of one repeating loop:
+The system was designed to scale incrementally without changing the core loop.
 
 ```
-         +-------------------+
-         |     DECISION      |
-         |  Slider / Input   |
-         +--------+----------+
-                  |
-                  v
-         +-------------------+
-         |    CONSEQUENCE    |
-         |  Financial Engine |
-         +--------+----------+
-                  |
-                  v
-         +-------------------+
-         |      ACTION       |
-         |  Insight Engine   |
-         +--------+----------+
-                  |
-                  | (user acts or adjusts)
-                  |
-                  +----> back to DECISION
+Current:  [Client Engine] --> [Next.js API] --> [PostgreSQL]
+
+Phase 2:  Add bank account connection (Plaid)
+          [Plaid Webhooks] --> [Transaction Import Pipeline]
+
+Phase 3:  Extract engine to shared package
+          [Client Engine] + [Server Engine] (same pure functions)
+
+Phase 4:  Add native mobile
+          [React Native] --> [Same API Routes]
+          [Client Engine] runs identically on mobile
 ```
 
-### Loop Component Mapping
-
-| Loop Stage  | System Component      | What It Does                                          |
-|-------------|-----------------------|-------------------------------------------------------|
-| Decision    | Slider / Input System | User expresses a change in financial behavior         |
-| Consequence | Financial Engine      | Computes the projected outcome of that change         |
-| Action      | Insight Engine        | Tells the user specifically what to do next           |
-| Loop        | UI State              | Returns the user to the decision point with new data  |
-
-This loop is not a feature — it is the system. Every architectural decision is evaluated against whether it supports or disrupts this loop.
+Each phase is additive. The financial engine, being pure functions, requires no change regardless of the layer above it.
 
 ---
 
-## 13. Financial Calculation Model
+## 12. Design Token System
 
-The Financial Engine is composed entirely of the following explicit formulas. All calculations are deterministic, stateless, and computable in microseconds.
+All visual constants are defined as CSS custom properties in `src/app/globals.css`. Components reference variables rather than hardcoded values.
 
-### Core Formulas
+| Token | Value | Usage |
+|---|---|---|
+| `--primary` | `#16a34a` | Primary green — actions, accents, active states |
+| `--royal-gradient` | Dark-to-light emerald | Sidebar and hero backgrounds |
+| `--gold-light` | `#E8CC7A` | Result row highlight in math tooltips |
+| `--primary-subtle` | `rgba(22,163,74,0.08)` | Icon container backgrounds |
+| `--primary-glow` | `rgba(22,163,74,0.15)` | Hover ring and focus glow |
+| `--success` | `#059669` | Positive metric indicators |
+| `--warning` | `#D97706` | Caution metric indicators |
+| `--danger` | `#DC2626` | Negative metric indicators |
 
-| Metric                  | Formula                                              | Description                                                  |
-|-------------------------|------------------------------------------------------|--------------------------------------------------------------|
-| Remaining Money         | `Income - Expenses`                                  | Net available funds after all monthly outgoings              |
-| Monthly Contribution    | `Remaining Money × Savings Rate`                     | Amount directed toward a goal each month                     |
-| Time to Goal (months)   | `Goal Amount / Monthly Contribution`                 | Months required to reach a savings target at current rate    |
-| Time to Goal (years)    | `Time to Goal (months) / 12`                         | Human-readable projection                                    |
-| Debt Payoff Time        | `Total Debt / Monthly Debt Payment`                  | Months until full debt clearance at current payment rate     |
-| Savings Rate            | `(Monthly Contribution / Income) × 100`              | Percentage of income being saved                             |
-| Debt-to-Income Ratio    | `(Monthly Debt Payment / Income) × 100`              | Percentage of income consumed by debt obligations            |
-| Impact of Slider Change | `New Projection - Baseline Projection`               | Delta in goal timeline from a single behavior change         |
-
-### Notes
-
-- All formulas assume constant monthly values (MVP simplification)
-- Compound interest and investment growth are deferred to a future phase
-- Slider changes recompute the relevant formulas instantly; no formula depends on another formula's async result
+Animations use a CSS `pageIn` keyframe. Page transitions are applied to the inner content `<div>` with `animation: pageIn 160ms ease-out backwards`. Framer Motion is not used in the main application.
 
 ---
 
-## 14. UI State Behavior
+## 13. Key Architectural Decisions
 
-This section defines the observable behavior of the interface in response to each system event.
-
-### State Transition Table
-
-| Trigger                        | System Change                              | User Sees                                          |
-|--------------------------------|--------------------------------------------|----------------------------------------------------|
-| User moves savings slider      | `sliderValues` updated → Engine reruns     | Goal timeline updates instantly in place           |
-| User moves expense slider      | `sliderValues` updated → Engine reruns     | Remaining money and contribution recalculate live  |
-| User changes income field      | `financialInputs` updated → Engine reruns  | All projections adjust simultaneously              |
-| User changes goal amount       | `financialInputs` updated → Engine reruns  | Time to goal recalculates immediately              |
-| Calculation completes          | `computedProjection` written to state      | Charts, counters, and timelines reflect new values |
-| Rule insight triggers          | `insights` updated synchronously           | Recommendation card updates without delay          |
-| AI call completes (debounced)  | `insights` updated asynchronously          | Recommendation card refreshes with richer content  |
-| User resets to baseline        | All `sliderValues` cleared                 | System returns to initial computed state           |
-
-### UI Rendering Contract
-
-- No spinner or loading state is shown during core recalculation
-- Charts animate to new values rather than jumping
-- Insight cards show rule-based content immediately; AI content replaces it progressively
-- All numeric values on screen are always consistent with the current engine output
-
----
-
-## 15. Scope Definition
-
-This section is the authoritative boundary between MVP and future work. If a feature is not listed under MVP, it is explicitly out of scope for the current build.
-
-### Feature Scope Table
-
-| Feature                              | MVP (Now)          | Future             |
-|--------------------------------------|--------------------|--------------------|
-| Income and expense input             | Included           | —                  |
-| Savings goal input                   | Included           | —                  |
-| Real-time slider interaction         | Included           | —                  |
-| Goal timeline projection             | Included           | —                  |
-| Debt payoff calculation              | Included           | —                  |
-| Rule-based insight engine            | Included           | —                  |
-| Savings rate and debt-to-income      | Included           | —                  |
-| Client-side only (no backend)        | Included           | —                  |
-| AI-powered recommendations           | —                  | Phase 2            |
-| Compound interest / investment model | —                  | Phase 2            |
-| Multiple simultaneous goals          | —                  | Phase 2            |
-| Scenario save and compare            | —                  | Phase 2            |
-| User accounts and authentication     | —                  | Phase 3            |
-| Backend API and data persistence     | —                  | Phase 3            |
-| Historical transaction import        | —                  | Phase 3            |
-| Mobile native application            | —                  | Phase 4            |
-| Shared financial plans               | —                  | Phase 4            |
-
----
-
-## 16. Performance Guarantees
-
-The following constraints are non-negotiable system requirements. Any implementation that violates these guarantees must be redesigned before shipping.
-
-### Enforced Rules
-
-| Rule | Requirement | Violation Condition |
-|------|-------------|---------------------|
-| P-01 | All financial calculations complete within 16ms | Any calculation that blocks a render frame |
-| P-02 | UI updates are instantaneous on slider change | Any visible delay between slider move and value update |
-| P-03 | No network call is permitted in the core interaction loop | Any fetch, XHR, or API call triggered synchronously on slider move |
-| P-04 | The Insight Engine must never block UI rendering | Any insight operation that delays chart or value update |
-| P-05 | AI calls must be debounced by a minimum of 800ms | Any AI call triggered in under 800ms of user interaction |
-| P-06 | AI calls must be fully asynchronous | Any AI call that awaits a result before rendering |
-| P-07 | The Calculation Engine must have no side effects | Any engine function that mutates state directly |
-| P-08 | Memoization must be applied to repeated identical inputs | Any engine call with identical inputs that recomputes from scratch |
-
-### Performance Budget
-
-| Operation                       | Maximum Time |
-|---------------------------------|--------------|
-| State update on user event      | < 1ms        |
-| Full financial engine run       | < 5ms        |
-| Full UI re-render cycle         | < 16ms       |
-| Rule-based insight evaluation   | < 5ms        |
-| AI debounce wait                | >= 800ms     |
-| AI API response (acceptable)    | < 3000ms     |
-
-These guarantees are what make the system feel instant. They must be treated as architectural constraints, not performance targets.
-
----
-
-*End of Architectural Plan*
+| Decision | Rationale |
+|---|---|
+| Projection computed inline, not stored in state | Eliminates synchronization lag; derived values cannot be stale |
+| localStorage for inputs and sliders | Zero-latency real-time loop; database writes are explicit user actions only |
+| AI key server-side only | Prevents credential exposure in the browser; enforced by Next.js route handler isolation |
+| Rule-based insight runs before AI | Users see an immediate recommendation regardless of API availability |
+| Single Zustand store | Prevents inconsistent UI states; simplifies debugging; enables undo as a future feature |
+| CSS custom properties for theming | Components are decoupled from color values; theme changes require only token updates |
+| Pure financial engine functions | Deterministic, independently testable, reusable on server or mobile without modification |

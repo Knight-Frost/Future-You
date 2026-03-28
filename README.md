@@ -1,529 +1,294 @@
 # FutureYou — Personal Financial Decision Engine
 
----
-
-A user types $200 less in monthly spending.
-
-Their goal date moves from March to October — five months sooner.
-Their debt clears fourteen months earlier.
-Their investment projection jumps by $11,000 over twenty years.
-
-They changed one number. FutureYou changed their future.
-
----
-
-See the impact of your financial decisions instantly — before you make them.
-
----
-
-> Traditional finance apps show the past. FutureYou shows the future.
-
-FutureYou defines a new category: real-time financial decision engines.
+**Version:** 1.0
+**Stack:** Next.js 14 · TypeScript · PostgreSQL · Prisma · Zustand · NextAuth v5
+**Status:** Production-ready
 
 ---
 
 ## Overview
 
-FutureYou is a personal financial decision engine. It takes a user's real financial situation and shows the direct consequence of their decisions in real time.
+FutureYou is a personal financial decision engine. It is not a budgeting app, a spending tracker, or a retrospective dashboard. It takes a user's current financial situation and models the direct consequences of their decisions in real time — before those decisions are made.
 
-- Not a budgeting app
-- Not a spending tracker
-- Not a retrospective dashboard
-
-It shows what **will** happen based on what you choose to do now — and tells you, in plain language, exactly what to do next.
-
-Every feature is built around one question: **"What happens if I do this?"**
-
----
-
-## What Happens When You Use FutureYou
-
-| What the User Does                   | What FutureYou Shows Immediately                          |
-|--------------------------------------|-----------------------------------------------------------|
-| Reduces monthly spending by $100     | Goal reached 3 months sooner. $1,200 kept over the year. |
-| Increases debt payment by $100/month | Debt cleared 13 months earlier. $450 in interest saved.  |
-| Starts investing $150/month          | $26,000 projected in 10 years. $78,000 in 20 years.      |
-| Increases monthly savings by $200    | Emergency fund reached in 8 months instead of 15.        |
-| Adjusts any input                    | Every number on screen updates instantly. No refresh.     |
-
-Every change is live. Every consequence is visible. Every result comes with a clear next step.
+Every feature answers one question: **What happens to my financial future if I change this behavior today?**
 
 ---
 
 ## The Problem
 
-Most people with money problems do not lack income. They lack clarity.
+Most personal finance tools are backward-looking. They display charts of what you have already spent and expect users to draw their own conclusions. This creates two compounding problems:
 
-Current personal finance tools fall into one of two traps:
-
-| Trap | What Happens |
+| Problem | Effect |
 |---|---|
-| Shows only the past | Charts and categories tell you what you spent. Not what to do next. |
-| Overwhelms with complexity | Too many screens, too many numbers, no guidance. Users close the app without acting. |
+| Data without guidance | Users see charts but do not know what to do next |
+| Retrospective framing | Information about the past has limited value at the moment of decision |
 
-The result: people make financial decisions in the dark. They guess. They hope. They find out later whether they were right.
+The result is that people make financial decisions without understanding the consequences of those decisions until months later, when the damage is already done.
 
 ---
 
 ## The Solution
 
-FutureYou replaces passive data display with active decision modeling.
+FutureYou replaces passive data display with active decision modeling. The system follows a single repeating loop:
 
 ```
-DECISION  →  CONSEQUENCE  →  ACTION
+DECISION  -->  CONSEQUENCE  -->  ACTION
 ```
 
-| Step | What It Means | Example |
+| Stage | Description | Example |
 |---|---|---|
-| DECISION | User considers a financial change | "What if I cut food spending by $150?" |
-| CONSEQUENCE | System shows the real outcome instantly | "You reach your goal 4 months sooner." |
-| ACTION | System tells the user exactly what to do | "Move $150 into your emergency fund each month." |
-
-This cycle is the foundation of everything FutureYou does.
+| Decision | User expresses a change in financial behavior | Move a slider: "What if I spend $100 less per month?" |
+| Consequence | System computes the projected outcome instantly | "Your goal is reached 4 months sooner." |
+| Action | System tells the user exactly what to do next | "Redirect $100 from dining to your emergency fund." |
 
 ---
 
-## Core Concept
+## What the System Does
 
-A decision engine is not a tracker or a calculator. It takes your current financial state, models the impact of possible changes, and returns clear guidance.
-
-Think of a navigation app. It does not just tell you where you are — it shows you every route, the time each takes, and which to choose. FutureYou does the same for your money.
-
-### Standard Finance App vs FutureYou
-
-| Standard Finance App         | FutureYou                             |
-|------------------------------|---------------------------------------|
-| Shows past spending          | Shows future consequences             |
-| Displays charts              | Models decisions and outcomes         |
-| Requires financial knowledge | Explains everything in plain language |
-| Tracks categories            | Simulates behavior changes            |
-| Tells you what happened      | Tells you what to do next             |
-| Passive                      | Interactive and live                  |
-
----
-
-## Real-Time Decision Impact
-
-FutureYou is a live system. No refresh buttons. No submit actions. No delays.
-
-When a user moves a slider or changes a number:
-
-- Monthly savings recalculates
-- Goal timeline updates
-- Debt payoff date adjusts
-- Investment projection shifts
-- AI recommendation responds to the new state
-
-```
-User adjusts input
-       |
-       v
-System recalculates all linked values instantly
-       |
-       v
-Dashboard updates live — goal timeline, debt payoff, investment growth
-       |
-       v
-AI Insight refreshes with updated recommendation
-       |
-       v
-User sees the consequence of their decision in real time
-```
-
-When someone drags a spending slider and watches their goal timeline shrink from 15 months to 10 months, they feel the consequence before they have made the decision. That feeling is the product.
-
----
-
-## Moment of Realization
-
-The product works when a user has this moment:
-
-**"Oh. So this is what my money is actually doing."**
-
-It happens when they first pull a slider and watch their future change. That is when a number on a screen becomes a decision they understand — when financial clarity replaces financial anxiety.
-
-Most finance tools give users more information. FutureYou gives users a new understanding of information they already had.
-
----
-
-## Why This Stands Out
-
-Most hackathon finance projects follow the same pattern: connect to a bank account, pull transactions, categorize spending, display charts. The user sees last month. Project complete.
-
-FutureYou is not that project.
-
-| Other Projects | FutureYou |
+| User Action | Immediate System Response |
 |---|---|
-| Record history | Model the future |
-| Track transactions | Simulate decisions |
-| Display data | Deliver guidance |
-| Passive dashboards | Live decision engine |
-
-The specific differences:
-
-- **No transaction tracking** — asks for current reality, models forward from there
-- **No retrospective charts** — every visual is forward-facing: timelines, projections, consequences
-- **No passive display** — every number responds to the user's choices in real time
-- **No data without guidance** — every output is paired with an explanation and a recommended action
+| Reduces monthly spending by $100 | Goal timeline shortens; net surplus increases; debt payoff accelerates |
+| Increases debt payment by $100/month | Payoff date moves earlier; total interest paid decreases |
+| Starts investing $150/month | 10/20/30-year projections update across three return scenarios |
+| Changes income or expense values | Every downstream metric recalculates within a single render cycle |
+| Saves a simulator scenario | Scenario is persisted to the database and accessible in history |
 
 ---
 
-## What Makes FutureYou Unique
+## Application Pages
 
-| Differentiator | What It Means |
+| Page | Route | Description |
+|---|---|---|
+| Dashboard | `/dashboard` | Financial health overview, AI insight, math-annotated metric cards, hero slideshow |
+| Plan | `/plan` | Full financial input form for income, expenses, debt, and investments |
+| Debt | `/debt` | Debt analysis, three optimizer strategies, amortization table |
+| Goals | `/goals` | Goal management, savings rate card with formula breakdown, progress tracking |
+| Simulator | `/simulator` | Interactive what-if modeling with four sliders and before/after comparison |
+| Insights | `/insights` | Rule-based and AI-generated insight cards with history and dismiss controls |
+| Analytics | `/analytics` | Stat cards with tooltips, four charts, CSV export, print report |
+| History | `/history` | Saved financial snapshots with trend comparison |
+| Transactions | `/transactions` | CSV import, classified transaction listing, category correction |
+| Settings | `/settings` | Currency, locale, return rate assumptions, notification preferences |
+| Profile | `/profile` | Account management and financial profile editing |
+
+---
+
+## Financial Engine
+
+All calculations are pure functions with no side effects. The engine runs synchronously on the client and produces outputs in under 5ms.
+
+### Core Functions
+
+| Function | Signature | Description |
+|---|---|---|
+| `calculateProjection` | `(inputs, sliders?) -> FinancialProjection` | Primary projection engine. Computes all downstream financial metrics from a set of inputs and optional simulator adjustments. |
+| `futureValueAnnuity` | `(monthlyContribution, annualRate, years) -> number` | Compound growth of regular monthly contributions. Used for investment projections. |
+| `futureValueLumpSum` | `(principal, annualRate, years) -> number` | Compound growth of an existing investment balance. |
+| `simulateLoan` | `(balance, monthlyPayment, annualRate) -> { months, totalInterest }` | Month-by-month amortization simulation. Authoritative source for interest calculations. |
+| `calcTotalInterest` | `(balance, monthlyPayment, annualRate) -> number` | Total interest paid over the full life of a loan. |
+| `assessFinancialHealth` | `(projection, inputs) -> HealthStatus` | Returns `strong`, `healthy`, `attention`, or `critical` based on four weighted metrics. |
+| `generateStrategies` | `(inputs) -> OptimizationResult[]` | Produces three ranked debt payoff strategies with feasibility decomposition. |
+| `evaluateRules` | `(inputs, projection) -> InsightResult` | Synchronous rule engine. Evaluates current financial state against a priority hierarchy and returns one categorized recommendation. |
+
+### Projection Output
+
+```
+FinancialProjection {
+  monthlyRemaining     // Income minus expenses (gross)
+  netSurplus           // Income minus expenses, debt, and investments (true free cash)
+  savingsRate          // (Income minus Expenses) divided by Income
+  debtToIncomeRatio    // Monthly debt payment divided by monthly income
+  emergencyFundMonths  // Current savings divided by monthly expenses
+
+  goalTimelineMonths      // Months to goal at current rate
+  simulatedGoalMonths     // Months to goal with simulator adjustments applied
+  goalTimeDelta           // Difference (negative = faster)
+
+  debtPayoffMonths        // Months to debt freedom at current payment
+  simulatedDebtMonths     // Months to debt freedom with extra payment applied
+  debtTimeDelta           // Difference
+  totalInterest           // Total interest at current payment rate
+  interestSaved           // Interest avoided with extra payment applied
+
+  investments.tenYear     // { conservative, moderate, optimistic }
+  investments.twentyYear
+  investments.thirtyYear
+}
+```
+
+### Investment Return Rate Assumptions
+
+| Scenario | Annual Rate | Use |
+|---|---|---|
+| Conservative | 5.0% | Lower bound for projections |
+| Moderate | 7.0% | Default projection displayed |
+| Optimistic | 9.0% | Upper bound for projections |
+
+---
+
+## Insight System
+
+The insight system operates in two layers. Both are non-blocking and do not delay the rendering of core financial data.
+
+```
+User Input / Slider Change
+         |
+         +----> Rule Engine (synchronous, < 5ms) ----> Instant insight card update
+         |
+         +----> Debounce timer (800ms)
+                      |
+                      v
+               AI API call (async, server-side) ----> Insight card refreshes on response
+```
+
+### Rule Engine Priority Hierarchy
+
+| Priority | Condition | Category |
+|---|---|---|
+| CRITICAL | Monthly net surplus is negative | Deficit |
+| HIGH | Debt APR exceeds 15% | High-interest debt |
+| HIGH | Emergency fund below 1 month of expenses | Emergency fund gap |
+| MEDIUM | Savings rate below 10% | Low savings rate |
+| MEDIUM | Monthly investment is zero | Not investing |
+| LOW | All metrics within healthy ranges | On track |
+
+### AI Layer
+
+The AI layer uses Claude Haiku 4.5 via a server-side API route. The key is never exposed to the browser. The AI receives the full financial context including the rule-based insight and returns a 2-3 sentence personalized recommendation. If the API is unavailable, the rule-based insight remains visible and the system degrades gracefully.
+
+---
+
+## State Management
+
+State is managed by a Zustand store (`useFinancialStore`) that persists inputs and simulator sliders to `localStorage`. Derived state — projections, health status, and insights — is recomputed on every hydration and input change.
+
+```
+Store {
+  inputs: FinancialInputs         // Persisted to localStorage
+  sliders: SimulatorSliders       // Persisted to localStorage
+  aiInsight: string | null        // Session only
+  aiLoading: boolean              // Session only
+  hydrated: boolean               // Lifecycle flag
+}
+```
+
+The store exposes `updateInputs`, `updateSliders`, `resetSliders`, `syncFromProfile`, `setAiInsight`, and `setAiLoading`. All projection values are derived by calling `calculateProjection(inputs, sliders)` within consuming components rather than being stored in state.
+
+---
+
+## Data Model
+
+### Core Tables
+
+| Table | Purpose |
 |---|---|
-| Replaces guessing with clarity | "I should save more" becomes "I reach my goal in October instead of February" |
-| Decision system, not a tracker | Models where every choice takes you — not where you have already been |
-| Five finance dimensions unified | Spending affects savings. Savings affect debt. Debt affects investing. One picture. |
-| Closes the data-to-action gap | Every output has a label, a meaning, and a recommended next step |
-| Built for the moment of decision | Fast, clear, and actionable — available exactly when the decision is being made |
+| `User` | Account record, authentication, onboarding state |
+| `FinancialProfile` | Persisted financial inputs synced from the Plan page |
+| `Goal` | User-defined financial goals with type, status, and target amount |
+| `Scenario` | Saved simulator configurations with projected outcomes |
+| `Strategy` | Generated debt payoff strategies with feasibility metadata |
+| `Insight` | Historical record of rule-based and AI-generated insights |
+| `Snapshot` | Point-in-time financial state snapshots for history and trend tracking |
+| `Transaction` | Imported transactions with classification and deduplication |
+| `ExpenseRule` | User-defined and system-defined transaction classification rules |
+| `UserSettings` | Per-user preferences including return rate assumptions and locale |
 
----
+### Goal Types
 
-## AI Integration
+`EMERGENCY_FUND` · `DEBT_PAYOFF` · `HOME_PURCHASE` · `INVESTMENT` · `TRAVEL` · `EDUCATION` · `RETIREMENT` · `CUSTOM`
 
-FutureYou uses AI as its interpretation layer — sitting between raw financial data and clear human guidance.
+### Transaction Classification Pipeline
 
-### What the AI Does
-
-1. **Identifies the highest-impact opportunity** — scans income, expenses, savings rate, debt load, and goal timeline to find the single most valuable change for this specific user
-2. **Translates complexity into a simple decision** — produces one clear sentence: what to do, why, and what happens as a result
-3. **Adapts dynamically** — recalculates and updates every time the user adjusts the simulator; not a static message, a live advisor
-
-### How It Works
+Imported transactions pass through a three-stage pipeline:
 
 ```
-User financial data (income, expenses, savings, debt, goal)
-       |
-       v
-AI analysis layer
-  - Identifies the highest-value change
-  - Calculates the projected outcome
-  - Generates a plain-language recommendation
-       |
-       v
-AI Insight displayed on dashboard
-  - Specific: names a dollar amount and a timeline
-  - Reasoned: explains why this recommendation matters now
-  - Actionable: tells the user exactly what to do next
-       |
-       v
-Recommendation updates whenever inputs change
+Raw CSV Row
+     |
+     v
+Normalization  -- Strips merchant codes, cleans whitespace, extracts amount/date
+     |
+     v
+Classification -- Matches against ExpenseRule table (user rules, system rules, keyword patterns)
+     |
+     v
+Deduplication  -- SHA-256 hash of (date + amount + normalizedName) prevents duplicate imports
 ```
 
-### Priority Logic
-
-| Priority | Condition | Recommendation |
-|---|---|---|
-| 1 | High-interest debt exists | Accelerate debt repayment first |
-| 2 | No emergency fund | Build one before investing |
-| 3 | Both covered | Optimize savings rate or begin investing |
-
-All recommendations include a specific dollar amount and a projected outcome.
-
-The AI layer is not decorative. It is the feature that makes FutureYou actionable instead of informational.
+Classification confidence is stored as a 0-100 integer. Users can correct misclassified transactions, and corrections are recorded with a timestamp.
 
 ---
 
-## Core Features
+## Authentication
 
-| Feature | What It Does | Why It Matters |
-|---|---|---|
-| Financial Input System | Collects income, expenses, savings, debt, and goal in under 3 minutes | Foundation for all calculations |
-| Future Simulator | Live sliders that model spending, saving, debt, and investing changes | Shows consequences before decisions are made |
-| Goal Tracker | Displays goal progress and time-to-completion; updates live | Connects decisions to outcomes |
-| Debt and Savings Impact Analysis | Side-by-side before/after view of debt payoff and interest paid | Makes the cost of slow repayment visible |
-| Investment Growth Projection | Projects monthly investment over 10, 20, 30 years across three return scenarios | Shows the long-term value of starting now |
-| AI Insight System | Generates a personalized, live-updating recommendation with reason and outcome | Closes the gap between data and action |
-| Financial Literacy Support | Every financial term defined inline at point of use | No jargon. No confusion. No separate help section. |
-| Clarity System | Product-wide standard: every number labeled, every recommendation reasoned | Nothing left for the user to interpret alone |
+Authentication uses NextAuth v5 with a credentials provider. Sessions are JWT-based. The `NEXTAUTH_SECRET` environment variable is required for session signing.
+
+Middleware at `src/middleware.ts` protects all routes under `/(app)` and `/(onboarding)`. Unauthenticated requests are redirected to `/login`.
 
 ---
 
-## Example Scenario
+## System Architecture
 
-**User profile:**
+```
+Browser
+   |
+   |-- Zustand Store (inputs, sliders)
+   |-- calculateProjection() [synchronous, < 5ms]
+   |-- UI Components [re-render only on changed state]
+   |
+   |-- POST /api/ai/insights [async, debounced 800ms]
+   |-- POST /api/goals        [CRUD]
+   |-- POST /api/scenarios    [CRUD]
+   |-- POST /api/transactions [import + classify]
+   |-- GET  /api/profile      [sync from database]
+   |
+Next.js Server
+   |
+   |-- Prisma ORM
+   |
+PostgreSQL
+```
 
-| Field | Value |
+---
+
+## Comparison
+
+| Capability | Standard Finance App | FutureYou |
+|---|---|---|
+| Primary orientation | Past (tracking) | Future (projection) |
+| User interaction model | Data entry and review | Decision simulation |
+| Output | Historical charts | Forward-facing consequences |
+| Insight delivery | Static category summaries | Prioritized, personalized recommendations |
+| Update model | Periodic refresh | Synchronous on every input change |
+| AI integration | None or cosmetic | Server-side, non-blocking, context-aware |
+
+---
+
+## Default Demo Data
+
+The system loads with the following default inputs to demonstrate the core loop immediately on first use.
+
+| Input | Default Value |
 |---|---|
 | Monthly income | $4,000 |
 | Monthly expenses | $3,200 |
 | Current savings | $800 |
-| Total debt | $6,000 at $150/month |
-| Goal | Emergency fund of $3,000 |
+| Debt balance | $6,000 at 18% APR |
+| Monthly debt payment | $150 |
+| Goal | Emergency Fund of $3,000 |
+| Monthly investment | $0 |
 
-**What FutureYou shows immediately:**
+Seeded demo account: `demo@futureyou.app` / `demo123456`
 
-| Output | Value |
+---
+
+## Future Work
+
+| Area | Description |
 |---|---|
-| Monthly money remaining | $800 |
-| Time to goal at current rate | 15 months |
-| Debt payoff timeline | 40 months |
-| Estimated interest paid | $1,200 |
-
-**AI Insight generated:**
-> "Your biggest opportunity right now is to reduce your debt faster. At your current payment, you will pay $1,200 in interest over 40 months. If you add $100 per month to your debt payment, you eliminate the debt in 27 months and save $450 in interest. Consider reducing one discretionary category by $100 this month to create that buffer."
-
-**User uses the simulator:**
-- Moves debt payment from $150 → $250
-- Dashboard updates instantly: payoff in 27 months, interest saved $450
-- Goal tracker adjusts: emergency fund reached in 13 months
-
-**User explores investment projection:**
-- Enters $100/month → System shows $26,000 in 10 years, $78,000 in 20 years, $181,000 in 30 years
-- Compound interest explained inline, in one sentence, without jargon
-
-**User leaves knowing exactly:**
-- Add $100 to debt payment this month
-- Reach debt freedom 13 months sooner
-- Save $450 in interest
-- Begin $100/month investment after debt is cleared
-
----
-
-## UI Wireframe
-
-```
-+----------------------------------------------------------+
-|  FutureYou                              [Dashboard]      |
-+----------------------------------------------------------+
-|                                                          |
-|  FINANCIAL SNAPSHOT                                      |
-|  +--------------------+  +----------------------------+ |
-|  | Monthly Remaining  |  | Goal: Emergency Fund       | |
-|  | $800               |  | $800 of $3,000 saved       | |
-|  | after all expenses |  | 15 months at current rate  | |
-|  +--------------------+  +----------------------------+ |
-|                                                          |
-|  AI INSIGHT                                              |
-|  +------------------------------------------------------+|
-|  | Add $100 to your debt payment this month.            ||
-|  | You save $450 in interest and finish 13 months early.||
-|  | Reduce dining by $100 to create the buffer.          ||
-|  +------------------------------------------------------+|
-|                                                          |
-|  FUTURE SIMULATOR                                        |
-|  Spending reduction   [ -------|------------- ] $100/mo  |
-|  Extra debt payment   [ -----------|--------- ] $100/mo  |
-|  Monthly savings add  [ ---|---------------- ] $50/mo    |
-|  Monthly investment   [ --|----------------- ] $0/mo     |
-|                                                          |
-|  LIVE RESULTS                                            |
-|  +------------------+  +-----------+  +---------------+ |
-|  | Goal reached in  |  | Debt free |  | Investment    | |
-|  | 10 months        |  | Month 27  |  | $0 projected  | |
-|  | (was 15)         |  | (was 40)  |  | (start now)   | |
-|  +------------------+  +-----------+  +---------------+ |
-|                                                          |
-+----------------------------------------------------------+
-```
-
-Every slider updates every result immediately. No buttons. No delays.
-
----
-
-## System Flow
-
-```
-+--------------------------------------------------+
-|              FINANCIAL INPUT SYSTEM              |
-|  Income | Expenses | Savings | Debt | Goal       |
-+--------------------------------------------------+
-                        |
-                        v
-+--------------------------------------------------+
-|              FINANCIAL DASHBOARD                 |
-|  Monthly remaining | Savings rate | Goal ETA     |
-|  Debt payoff date  | One-line summary            |
-+--------------------------------------------------+
-                        |
-          +-------------+-------------+
-          |                           |
-          v                           v
-+-------------------+     +------------------------+
-|  FUTURE SIMULATOR |     |    AI INSIGHT SYSTEM   |
-|  Adjust spending  |     |  Reads full data state |
-|  Adjust savings   |     |  Identifies top action |
-|  Adjust debt pmts |     |  Generates plain-      |
-|  Adjust investing |     |  language guidance     |
-+-------------------+     +------------------------+
-          |                           |
-          v                           v
-+--------------------------------------------------+
-|         REAL-TIME DASHBOARD UPDATE               |
-|  Goal timeline | Debt payoff | Investment value  |
-|  All values recalculate instantly on input change|
-+--------------------------------------------------+
-                        |
-          +-------------+-------------+
-          |                           |
-          v                           v
-+-------------------+     +------------------------+
-|  DEBT + SAVINGS   |     |  INVESTMENT GROWTH     |
-|  IMPACT ANALYSIS  |     |  PROJECTION            |
-|  Before / After   |     |  10 | 20 | 30 years    |
-|  Interest saved   |     |  Conservative/Moderate |
-+-------------------+     +------------------------+
-                        |
-                        v
-+--------------------------------------------------+
-|               FINANCIAL LITERACY                 |
-|  Every term explained inline at point of use    |
-+--------------------------------------------------+
-                        |
-                        v
-+--------------------------------------------------+
-|              USER LEAVES WITH:                   |
-|  - Clear understanding of current situation      |
-|  - Specific recommended next action              |
-|  - Projected outcome of that action              |
-|  - Confidence to act                             |
-+--------------------------------------------------+
-```
-
----
-
-## Challenge Coverage
-
-| Area               | How FutureYou Addresses It                                                                   |
-|--------------------|----------------------------------------------------------------------------------------------|
-| Budgeting          | Income minus expenses forms the foundation of all calculations. Live as the user edits.    |
-| Saving             | Monthly savings rate displayed and modeled. Goal timeline adjusts in real time.             |
-| Debt Management    | Total debt, payoff timeline, and interest cost displayed. Simulator shows impact of changes.|
-| Investing          | Monthly investment input with 10/20/30 year projections across three return scenarios.      |
-| Financial Literacy | Every financial term defined inline. AI explains recommendations in plain language.         |
-
----
-
-## System Logic
-
-All calculations run in real time. Every variable is live — when the user changes an input, every dependent formula recalculates instantly.
-
-```
-monthly_savings    = income - expenses
-
-goal_time_months   = goal_amount / monthly_savings
-
-debt_payoff_months = debt_balance / monthly_payment
-
-monthly_interest   = debt_balance x (annual_rate / 12)
-
-investment_value   = monthly_investment x (((1 + monthly_rate) ^ months - 1) / monthly_rate)
-```
-
-| Variable | Value |
-|---|---|
-| `monthly_rate` | `annual_rate / 12` |
-| `months` | `years x 12` |
-| Conservative return | 5% |
-| Moderate return | 7% |
-| Optimistic return | 9% |
-
-The user never sees the math — only the result, labeled in plain English.
-
----
-
-## Future Improvements
-
-Out of scope for MVP. Clear next steps:
-
-- Bank account integration for automatic data import
-- Notifications for goal milestones and spending alerts
-- Multi-goal tracking with priority ordering
-- Historical decision log comparing past simulations to real outcomes
-- Mobile-native version for in-the-moment decision support
-- Side-by-side scenario comparison
-
----
-
-## Build Rules
-
-Constraints, not suggestions. Every build decision must satisfy all of them.
-
-| Rule | What It Means |
-|---|---|
-| Keep it simple | Every feature does one thing well |
-| Keep it clear | Every piece of text must be understandable without financial knowledge |
-| No ambiguity | Every number has a label. Every label has a meaning. Every recommendation has a reason. |
-| No unnecessary features | Build only the MVP checklist. Extra features before demo are risk with no reward. |
-| Feedback must be immediate | No delays, no submit buttons — simulator updates all outputs on every change |
-| Never show a number without context | Every value is accompanied by a plain-language explanation |
-| Write for humans | Use "you" and "your money." Explain any jargon inline. |
-
----
-
-## MVP Checklist
-
-**Financial Input**
-- [ ] Monthly income field
-- [ ] Expense fields by category with running total
-- [ ] Current savings balance field
-- [ ] Total debt and monthly payment fields
-- [ ] Goal name and target amount fields
-
-**Dashboard**
-- [ ] Monthly remaining money with plain-language label
-- [ ] Current savings rate
-- [ ] Time to goal at current rate
-- [ ] Debt payoff timeline
-- [ ] One-sentence plain-language financial summary
-
-**AI Insight**
-- [ ] Recommendation visible on dashboard
-- [ ] Specific to user's data (not generic)
-- [ ] Includes reason and projected outcome
-- [ ] Updates when any input changes
-
-**Future Simulator**
-- [ ] Spending reduction input
-- [ ] Savings increase input
-- [ ] Debt payment increase input
-- [ ] Investment amount input
-- [ ] All outputs update in real time on every change
-
-**Goal Tracker**
-- [ ] Goal name and target displayed
-- [ ] Current progress displayed
-- [ ] Estimated time to goal displayed
-- [ ] Updates live with simulator
-
-**Debt and Savings Impact**
-- [ ] Current payoff timeline
-- [ ] Total interest at current rate
-- [ ] Updated timeline after payment change
-- [ ] Interest saved shown in plain language
-
-**Investment Projection**
-- [ ] Monthly investment input
-- [ ] Projected value at 10, 20, 30 years
-- [ ] Conservative and moderate scenarios
-- [ ] Compound interest explained inline
-
-**Clarity and Literacy**
-- [ ] Every financial term has an inline plain-language explanation
-- [ ] No unexplained jargon anywhere in the product
-- [ ] Every number has a label
-- [ ] Every recommendation has a reason
-
-**General**
-- [ ] App loads and runs without errors
-- [ ] All inputs produce correct calculated outputs
-- [ ] Full demo flow works end to end
-- [ ] All text is readable and in plain English
-- [ ] Product is stable for a live demo
-
----
-
-## Summary
-
-Most finance tools hand you a mirror and ask you to figure out what you see.
-
-FutureYou hands you a map, marks where you are, shows you where every road leads, and tells you which one to take.
-
-People do not need more data about their money. They need to understand what their money is doing and what they should do about it. That is not a feature. That is the entire product.
-
-FutureYou does not show you your money.
-
-It shows you your future.
-
-And gives you the power to change it before it happens.
+| Bank integration | Direct account connection via Plaid for automatic transaction import |
+| Mobile application | Native iOS and Android apps optimized for in-the-moment decisions |
+| Scenario comparison | Side-by-side view of two saved simulator configurations |
+| Goal prioritization | Multi-goal management with ordered priority and automatic surplus allocation |
+| Inflation adjustment | Apply a configurable inflation rate to long-term projections |
+| Streaming AI responses | Progressive AI insight rendering using the streaming API |
+| Shared financial plans | Collaborative planning for households and partners |
