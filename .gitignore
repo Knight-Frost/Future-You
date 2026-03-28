@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+out/
+
+# Environment — never commit
+.env
+.env.local
+.env.*.local
+
+# Misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts

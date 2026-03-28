@@ -1,0 +1,461 @@
+// FutureYou — Production Database Schema
+// PostgreSQL via Supabase | ORM: Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id                String           @id @default(cuid())
+  email             String           @unique
+  emailVerified     DateTime?
+  name              String?
+  image             String?
+  passwordHash      String?
+  timezone          String           @default("UTC")
+  onboardingDone    Boolean          @default(false)
+  onboardingStep    Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  financialProfile  FinancialProfile?
+  goals             Goal[]
+  scenarios         Scenario[]
+  strategies        Strategy[]
+  insights          Insight[]
+  snapshots         Snapshot[]
+  settings          UserSettings?
+  transactions      Transaction[]
+  expenseRules      ExpenseRule[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINANCIAL PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FinancialProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+
+  // Income & Expenses
+  monthlyIncome        Float    @default(0)
+  monthlyExpenses      Float    @default(0)
+  // Breakdown (optional for detailed view)
+  housingExpense       Float?
+  transportExpense     Float?
+  foodExpense          Float?
+  utilitiesExpense     Float?
+  entertainmentExpense Float?
+  otherExpense         Float?
+
+  // Savings
+  currentSavings       Float    @default(0)
+  emergencyFundTarget  Float?
+  monthlyInvestment    Float    @default(0)
+  investmentBalance    Float    @default(0)
+
+  // Debt (primary debt account)
+  debtBalance          Float    @default(0)
+  debtMonthlyPayment   Float    @default(0)
+  debtAnnualRate       Float    @default(0.18)   // 18% APR default
+  debtType             String?  // 'credit_card' | 'personal_loan' | 'student_loan' | 'other'
+  debtName             String?
+
+  // Investment assumptions
+  investmentReturnRate Float    @default(0.07)   // 7% annual default
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("financial_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GOALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Goal {
+  id             String     @id @default(cuid())
+  userId         String
+
+  title          String
+  type           GoalType
+  targetAmount   Float
+  currentAmount  Float      @default(0)
+  targetDate     DateTime?
+  targetMonths   Int?        // Alternative to targetDate
+  priority       Int        @default(1)   // 1 = highest
+  status         GoalStatus @default(ACTIVE)
+  notes          String?    @db.Text
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+enum GoalType {
+  EMERGENCY_FUND
+  DEBT_PAYOFF
+  HOME_PURCHASE
+  INVESTMENT
+  TRAVEL
+  EDUCATION
+  RETIREMENT
+  CUSTOM
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCENARIOS (Saved "what-if" simulations)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Scenario {
+  id                    String   @id @default(cuid())
+  userId                String
+  name                  String
+  description           String?  @db.Text
+
+  // Slider values at time of save
+  spendingReduction     Float    @default(0)    // % reduction
+  extraDebtPayment      Float    @default(0)    // $ added
+  extraSavings          Float    @default(0)    // $ added
+  extraInvestment       Float    @default(0)    // $ added
+
+  // Computed outcomes at time of save
+  resultGoalMonths      Float?
+  resultDebtMonths      Float?
+  resultInterestSaved   Float?
+  resultMonthlyGain     Float?
+  projectionData        Json?    // Store chart data points
+
+  isActive              Boolean  @default(false)  // User's chosen active scenario
+  isPreferred           Boolean  @default(false)  // User marked as preferred
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("scenarios")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STRATEGIES (System-generated + user-selected plans)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Strategy {
+  id                   String         @id @default(cuid())
+  userId               String
+
+  label                String
+  title                String
+  description          String         @db.Text
+  type                 StrategyType
+
+  // What the strategy requires
+  requiredMonthlyExtra Float
+  spendingChange       Float          @default(0)
+  paymentChange        Float          @default(0)
+  savingsChange        Float          @default(0)
+
+  // Projected outcomes
+  projectedMonths      Float?
+  projectedInterestSaved Float?
+  projectedTimeReduction Float?
+
+  feasibility          Feasibility    @default(FEASIBLE)
+  isRecommended        Boolean        @default(false)
+  isActive             Boolean        @default(false)  // Currently chosen by user
+  notes                String?        @db.Text
+
+  generatedAt          DateTime       @default(now())
+  activatedAt          DateTime?
+  updatedAt            DateTime       @updatedAt
+
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("strategies")
+}
+
+enum StrategyType {
+  REDUCE_SPENDING
+  BOOST_PAYMENT
+  COMBINED
+  INCOME_GROWTH
+  REFINANCE
+}
+
+enum Feasibility {
+  FEASIBLE
+  AGGRESSIVE
+  INFEASIBLE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INSIGHTS (AI + rule-based, persisted per generation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Insight {
+  id          String      @id @default(cuid())
+  userId      String
+
+  source      InsightSource
+  priority    InsightPriority
+  category    String
+  action      String      @db.Text
+  reason      String      @db.Text
+  outcome     String      @db.Text
+  pageContext String?     // Which page triggered this insight
+
+  isRead      Boolean     @default(false)
+  isDismissed Boolean     @default(false)
+
+  createdAt   DateTime    @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("insights")
+}
+
+enum InsightSource {
+  RULE_BASED
+  AI_GENERATED
+}
+
+enum InsightPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SNAPSHOTS (Point-in-time financial state for progress tracking)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Snapshot {
+  id                 String   @id @default(cuid())
+  userId             String
+
+  // Financial state at snapshot time
+  monthlyIncome      Float
+  monthlyExpenses    Float
+  monthlySurplus     Float
+  currentSavings     Float
+  debtBalance        Float
+  debtPayment        Float
+  monthlyInvestment  Float
+
+  // Calculated metrics at snapshot time
+  savingsRate        Float
+  debtToIncome       Float
+  goalTimelineMonths Float?
+  debtPayoffMonths   Float?
+  totalInterestCost  Float?
+
+  // Gap metrics
+  gapMonths          Float?   // Months ahead/behind target
+  healthStatus       String   // 'strong' | 'healthy' | 'attention' | 'critical'
+
+  createdAt          DateTime @default(now())
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("snapshots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER SETTINGS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPENSE INTELLIGENCE ENGINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Transaction {
+  id                    String              @id @default(cuid())
+  userId                String
+
+  // Raw input (preserved verbatim — never modified after import)
+  date                  DateTime
+  rawDescription        String              @db.Text
+  amount                Float               // Always positive (absolute value)
+  isDebit               Boolean             @default(true)  // true=expense, false=income
+
+  // Normalization output
+  normalizedName        String
+
+  // Classification output
+  category              ExpenseCategory
+  subcategory           String?
+  confidence            Int                 // 0–100, reflects system certainty
+  explanation           String              @db.Text  // Human-readable: why this category
+  classifiedBy          ClassificationSource
+
+  // User correction (when user overrides the system)
+  userCategory          ExpenseCategory?    // Set when user corrects
+  userCorrectedAt       DateTime?
+
+  // Import metadata
+  importSource          String?             // 'csv' | 'manual' | 'api'
+  importBatchId         String?             // Groups all rows from same upload
+
+  // Duplicate prevention
+  dedupeHash            String              // sha256(date+amount+normalizedName)
+  isDuplicate           Boolean             @default(false)
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, category])
+  @@unique([userId, dedupeHash])           // Prevents duplicate imports
+  @@map("transactions")
+}
+
+// User-defined + system classification rules
+model ExpenseRule {
+  id            String          @id @default(cuid())
+  userId        String?         // null = global system rule
+
+  pattern       String          // The matching text
+  patternType   RulePatternType
+  category      ExpenseCategory
+  priority      Int             @default(100)  // Lower number = checked first
+  isUserDefined Boolean         @default(false)
+  description   String?         // Why this rule exists
+
+  hitCount      Int             @default(0)    // Times this rule has matched
+  lastHitAt     DateTime?
+
+  createdAt     DateTime        @default(now())
+
+  user          User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("expense_rules")
+}
+
+enum ExpenseCategory {
+  HOUSING
+  FOOD
+  TRANSPORTATION
+  UTILITIES
+  SUBSCRIPTIONS
+  HEALTHCARE
+  DEBT_PAYMENTS
+  SAVINGS_INVESTMENTS
+  MISCELLANEOUS
+}
+
+enum ClassificationSource {
+  USER_RULE         // User explicitly set or corrected
+  SYSTEM_RULE       // Matched a system keyword rule
+  MERCHANT_DB       // Matched known merchant registry
+  KEYWORD_MATCH     // Matched keyword pattern
+  PATTERN_INFERENCE // Inferred from recurring amount/timing
+  FALLBACK          // Could not classify confidently
+}
+
+enum RulePatternType {
+  CONTAINS
+  STARTS_WITH
+  ENDS_WITH
+  EXACT
+  REGEX
+}
+
+model UserSettings {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+
+  // Preferences
+  currency                 String   @default("USD")
+  locale                   String   @default("en-US")
+  darkMode                 Boolean  @default(false)
+  emailNotifications       Boolean  @default(true)
+  weeklyDigest             Boolean  @default(true)
+
+  // Investment assumptions
+  conservativeReturnRate   Float    @default(0.05)
+  moderateReturnRate       Float    @default(0.07)
+  optimisticReturnRate     Float    @default(0.09)
+  inflationRate            Float    @default(0.03)
+
+  // Display preferences
+  showInvestmentProjections Boolean @default(true)
+  defaultView              String   @default("dashboard")
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
