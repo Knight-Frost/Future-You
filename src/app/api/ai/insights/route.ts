@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const prompt = buildAIPrompt(body);
 
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 200,
       system:
         'You are a calm, direct financial advisor. Give one specific actionable insight in 2-3 sentences. Be concrete with numbers. No fluff, no platitudes.',
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: { insight: text } });
   } catch (error) {
-    console.error('[ai/insights]', error);
+    console.error('[ai/insights] error:', JSON.stringify(error, null, 2));
     return NextResponse.json(
       { error: 'AI insight unavailable', data: { insight: null } },
       { status: 200 } // Graceful fallback — don't fail the UI

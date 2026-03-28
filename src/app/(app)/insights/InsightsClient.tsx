@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useFinancialStore } from '@/stores/useFinancialStore';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
@@ -174,26 +174,8 @@ interface Props {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function InsightsClient({ persistedInsights }: Props) {
-  const { inputs, projection, ruleInsight, aiInsight, setAiInsight, setAiLoading, aiLoading } = useFinancialStore();
-  const fetchedRef = useRef(false);
+  const { inputs, projection, ruleInsight } = useFinancialStore();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-
-  // Fetch Claude AI analysis once per session when rule insight is available
-  useEffect(() => {
-    if (fetchedRef.current || !ruleInsight) return;
-    fetchedRef.current = true;
-    setAiLoading(true);
-    fetch('/api/ai/insights', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs, projection, ruleInsight }),
-    })
-      .then((r) => r.json())
-      .then((data) => setAiInsight(data?.data?.insight ?? null))
-      .catch(() => setAiInsight(null))
-      .finally(() => setAiLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ruleInsight]);
 
   const config  = ruleInsight ? PRIORITY_CONFIG[ruleInsight.priority] : PRIORITY_CONFIG.LOW;
   const metrics = buildMetrics(inputs, projection);
@@ -328,75 +310,6 @@ export function InsightsClient({ persistedInsights }: Props) {
           </Link>
         </div>
       )}
-
-      {/* ── Claude AI Analysis ─────────────────────────────────────────────── */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          background: 'var(--surface-primary-bg)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          border: '1px solid var(--surface-primary-border)',
-          boxShadow: 'var(--shadow-card)',
-        }}
-      >
-        {/* Header */}
-        <div
-          className="px-6 py-3.5 flex items-center gap-3"
-          style={{
-            background: 'var(--primary-subtle)',
-            borderBottom: '1px solid rgba(22,163,74,0.15)',
-          }}
-        >
-          <div
-            className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-            </svg>
-          </div>
-          <span className="text-sm font-bold" style={{ color: 'var(--primary)' }}>
-            Claude AI Analysis
-          </span>
-          <span className="chip chip-primary text-xs ml-auto">
-            {aiLoading ? 'Analyzing…' : 'Claude AI'}
-          </span>
-        </div>
-
-        {/* Body */}
-        <div className="p-6">
-          {aiLoading ? (
-            <div className="space-y-3">
-              <SkeletonLine />
-              <SkeletonLine w="w-5/6" />
-              <SkeletonLine w="w-4/5" />
-              <SkeletonLine w="w-3/5" />
-            </div>
-          ) : aiInsight ? (
-            <p className="body-base leading-relaxed">{aiInsight}</p>
-          ) : (
-            <div className="flex items-start gap-3">
-              <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                style={{ background: 'var(--muted)' }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted-foreground)' }}>
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
-                  Deep AI analysis unavailable
-                </p>
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  Claude AI requires an active API connection. Your rule-based recommendation above is calculated in real time from your exact financial data — it's personalized and always up to date.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* ── Financial snapshot ─────────────────────────────────────────────── */}
       <div
