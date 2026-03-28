@@ -6,6 +6,23 @@
 
 ---
 
+## Documentation
+
+Full documentation is located in the `documentation/` folder.
+
+| Document | Description |
+|---|---|
+| [Setup Guide](documentation/SETUP.md) | Installation, environment configuration, local development, and production deployment |
+| [Architecture](documentation/ARCHITECTURE.md) | System design, data flow diagrams, layer responsibilities, and performance model |
+| [Financial Engine](documentation/FINANCIAL_ENGINE.md) | All mathematical formulas, engine functions, type definitions, and default values |
+| [API Reference](documentation/API_REFERENCE.md) | All API endpoints with request/response schemas and error codes |
+| [Data Model](documentation/DATA_MODEL.md) | Complete database schema with field descriptions, enumerations, and entity relationships |
+| [Security](documentation/SECURITY.md) | Authentication flow, route protection, credential management, and data isolation |
+| [Implementation](documentation/IMPLEMENTATION.md) | Feature status, engine implementation details, bug audit log, and build decisions |
+| [User Guide](documentation/USER_GUIDE.md) | End-user documentation for all pages, features, and calculations |
+
+---
+
 ## Overview
 
 FutureYou is a personal financial decision engine. It is not a budgeting app, a spending tracker, or a retrospective dashboard. It takes a user's current financial situation and models the direct consequences of their decisions in real time — before those decisions are made.
