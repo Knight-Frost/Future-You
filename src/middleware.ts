@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const PUBLIC_ROUTES = ['/login', '/register'];
+const PUBLIC_ROUTES = ['/', '/login', '/register'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -29,11 +29,10 @@ export async function middleware(req: NextRequest) {
   const isLoggedIn = !!token;
   const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
 
-  // Root redirect — always send logged-in users to dashboard;
-  // the app layout handles the onboarding gate via auth() (fresh DB read).
+  // Root — send logged-in users to the app; unauthenticated users see the landing page.
   if (pathname === '/') {
-    if (!isLoggedIn) return NextResponse.redirect(new URL('/login', req.url));
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    if (isLoggedIn) return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.next();
   }
 
   // Protect non-public routes from unauthenticated access

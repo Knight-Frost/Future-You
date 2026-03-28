@@ -147,9 +147,14 @@ async function updateProfileFromTransactions(userId: string) {
     (categorySums['MISCELLANEOUS'] ?? 0)
   ) / numMonths;
 
+  // Sum all debit categories into the total monthlyExpenses figure so
+  // projections on every other page reflect the real imported spending.
+  const totalMonthlyExpenses = Object.values(categorySums).reduce((a, b) => a + b, 0) / numMonths;
+
   await prisma.financialProfile.updateMany({
     where: { userId },
     data: {
+      monthlyExpenses:    Math.round(totalMonthlyExpenses),
       housingExpense:     Math.round(housingExpense),
       transportExpense:   Math.round(transportExpense),
       foodExpense:        Math.round(foodExpense),

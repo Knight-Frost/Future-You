@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import {
   AreaChart, Area, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -9,6 +9,7 @@ import {
 import { useFinancialStore } from '@/stores/useFinancialStore';
 import { futureValueLumpSum, futureValueAnnuity } from '@/engine/calculator';
 import { formatCurrency, formatPercent, formatMonths } from '@/lib/utils';
+import { useSyncProfile } from '@/hooks/useSyncProfile';
 import type { FinancialInputs, FinancialProjection } from '@/types';
 
 // ─── Analytics API types ──────────────────────────────────────────────────────
@@ -349,19 +350,28 @@ function CustomTooltip({ active, payload, label, formatter }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AnalyticsReportsPage() {
+  useSyncProfile();
   const { inputs, projection, healthStatus } = useFinancialStore();
 
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchAnalytics = useCallback(() => {
     fetch('/api/transactions/analytics?months=3')
       .then((r) => r.json())
       .then((json) => { if (json.hasData) setAnalyticsData(json.data); })
       .catch(() => {})
       .finally(() => setAnalyticsLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+    // Re-fetch when the user returns to this tab (e.g. after importing transactions)
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAnalytics(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchAnalytics]);
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const netWorth    = inputs.currentSavings + inputs.investmentBalance - inputs.debtBalance;
@@ -373,7 +383,39 @@ export default function AnalyticsReportsPage() {
   };
 
   // ── 1. Cash Flow ───────────────────────────────────────────────────────────
+  // Preference: real transaction data for historical months, projected forward.
+  // Surplus = true net surplus (income − expenses − debt − investment).
   const cashFlowData = useMemo(() => {
+    const netSurplus = inputs.monthlyIncome - inputs.monthlyExpenses - inputs.debtMonthlyPayment - inputs.monthlyInvestment;
+
+    if (analyticsData?.monthlyTrend?.length) {
+      // Historical months from real transactions
+      const historical = analyticsData.monthlyTrend.map((m) => ({
+        month: m.month,
+        Income:   inputs.monthlyIncome,
+        Expenses: m.totalExpenses,
+        Surplus:  Math.max(0, inputs.monthlyIncome - m.totalExpenses - inputs.debtMonthlyPayment - inputs.monthlyInvestment),
+        projected: false,
+      }));
+
+      // Append up to 3 projected future months so the chart has a forward view
+      const lastDate = new Date();
+      const projected = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date(lastDate);
+        d.setMonth(d.getMonth() + i + 1);
+        return {
+          month: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          Income:   inputs.monthlyIncome,
+          Expenses: inputs.monthlyExpenses,
+          Surplus:  Math.max(0, netSurplus),
+          projected: true,
+        };
+      });
+
+      return [...historical, ...projected];
+    }
+
+    // No transaction data — show 12-month projection from store values
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const now = new Date();
     return months.map((_, i) => {
@@ -382,12 +424,14 @@ export default function AnalyticsReportsPage() {
         month: months[idx],
         Income:   inputs.monthlyIncome,
         Expenses: inputs.monthlyExpenses,
-        Surplus:  Math.max(0, inputs.monthlyIncome - inputs.monthlyExpenses),
+        Surplus:  Math.max(0, netSurplus),
+        projected: true,
       };
     });
-  }, [inputs.monthlyIncome, inputs.monthlyExpenses]);
+  }, [analyticsData, inputs.monthlyIncome, inputs.monthlyExpenses, inputs.debtMonthlyPayment, inputs.monthlyInvestment]);
 
   const surplusInsight = (() => {
+    if (inputs.monthlyExpenses === 0) return 'Your expenses appear to be $0. Complete Step 2 of your Plan to get an accurate savings rate.';
     const rate = projection.savingsRate;
     if (rate < 0)    return 'Your expenses exceed your income. Every month you delay costs you more — cut expenses or increase income now.';
     if (rate < 0.05) return `You keep only ${formatPercent(rate)} of your income. The recommended minimum is 15%. Small cuts compound into large freedom.`;
@@ -395,30 +439,20 @@ export default function AnalyticsReportsPage() {
     return `Your ${formatPercent(rate)} savings rate exceeds the 15% benchmark. Channel surplus into investments to compound wealth faster each year.`;
   })();
 
-  // ── 2. Spending Breakdown ──────────────────────────────────────────────────
+  // ── 2. Spending Breakdown — real transaction data only, no estimates ─────────
   const spendingData = useMemo(() => {
-    if (analyticsData?.categoryBreakdown?.length) {
-      return analyticsData.categoryBreakdown
-        .map((c) => ({ name: c.label, value: Math.round(c.totalAmount / (analyticsData.monthsAnalyzed || 1)), color: c.color }))
-        .filter((d) => d.value > 0);
-    }
-    const total = inputs.monthlyExpenses;
-    if (total <= 0) return [];
-    return [
-      { name: 'Housing',       value: Math.round(total * 0.35),                                                                                                          color: BLUE  },
-      { name: 'Transport',     value: Math.round(total * 0.15),                                                                                                          color: AMBER },
-      { name: 'Food',          value: Math.round(total * 0.12),                                                                                                          color: GREEN },
-      { name: 'Debt Payments', value: Math.round(inputs.debtMonthlyPayment),                                                                                             color: RED   },
-      { name: 'Other',         value: Math.max(0, total - Math.round(total*0.35) - Math.round(total*0.15) - Math.round(total*0.12) - Math.round(inputs.debtMonthlyPayment)), color: SLATE },
-    ].filter((d) => d.value > 0);
-  }, [analyticsData, inputs.monthlyExpenses, inputs.debtMonthlyPayment]);
+    if (!analyticsData?.categoryBreakdown?.length) return [];
+    return analyticsData.categoryBreakdown
+      .map((c) => ({ name: c.label, value: Math.round(c.totalAmount / (analyticsData.monthsAnalyzed || 1)), color: c.color }))
+      .filter((d) => d.value > 0);
+  }, [analyticsData]);
 
   const isRealSpendingData  = !!analyticsData?.categoryBreakdown?.length;
   const spendingTotal       = spendingData.reduce((s, d) => s + d.value, 0);
   const largestCategory     = spendingData.length > 0 ? [...spendingData].sort((a, b) => b.value - a.value)[0] : null;
   const spendingInsight     = largestCategory
-    ? `${isRealSpendingData ? 'Based on your actual transactions, your' : 'Your estimated'} biggest category is ${largestCategory.name} at ${formatCurrency(largestCategory.value)}/mo (${formatPercent(spendingTotal > 0 ? largestCategory.value / spendingTotal : 0)}). A 10% reduction frees ${formatCurrency(largestCategory.value * 0.1)}/mo for debt or savings.`
-    : 'Import transactions to see a real spending breakdown.';
+    ? `Based on your actual transactions, your biggest category is ${largestCategory.name} at ${formatCurrency(largestCategory.value)}/mo (${formatPercent(spendingTotal > 0 ? largestCategory.value / spendingTotal : 0)}). A 10% reduction frees ${formatCurrency(largestCategory.value * 0.1)}/mo for debt or savings.`
+    : 'Import transactions to see where your money is actually going.';
 
   // ── 3. Debt Paydown ────────────────────────────────────────────────────────
   const debtData = useMemo(() => {
@@ -444,27 +478,40 @@ export default function AnalyticsReportsPage() {
     : `At your current payment, debt-free in ~${Math.round(projection.debtPayoffMonths)} months with ${formatCurrency(projection.totalInterest)} total interest. An extra $50/mo saves significantly.`;
 
   // ── 4. Net Worth Growth ────────────────────────────────────────────────────
+  // Each scenario compounds ALL wealth-building cash flows (investments +
+  // savings balance + monthly surplus) at its own rate so the three lines
+  // actually diverge. Using a flat linear savings term made all lines identical.
   const netWorthData = useMemo(() => {
     const data: { year: string; Conservative: number; Moderate: number; Optimistic: number }[] = [];
-    const monthlyRate = inputs.debtAnnualRate / 12;
-    const payment     = inputs.debtMonthlyPayment;
+    const debtMonthlyRate = inputs.debtAnnualRate / 12;
+    const payment         = inputs.debtMonthlyPayment;
+    const monthlySurplus  = Math.max(0, projection.netSurplus);
+
     for (let yr = 0; yr <= 10; yr++) {
-      const conservative = futureValueLumpSum(inputs.investmentBalance, 0.05, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.05, yr);
-      const moderate     = futureValueLumpSum(inputs.investmentBalance, 0.07, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.07, yr);
-      const optimistic   = futureValueLumpSum(inputs.investmentBalance, 0.09, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.09, yr);
-      let debtRemaining  = inputs.debtBalance;
+      // Investment portfolio: existing balance + ongoing contributions, compounded
+      const investC = futureValueLumpSum(inputs.investmentBalance, 0.05, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.05, yr);
+      const investM = futureValueLumpSum(inputs.investmentBalance, 0.07, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.07, yr);
+      const investO = futureValueLumpSum(inputs.investmentBalance, 0.09, yr) + futureValueAnnuity(inputs.monthlyInvestment, 0.09, yr);
+
+      // Savings: existing balance + surplus redirected into savings, compounded
+      // This is what makes scenarios diverge — same surplus, different growth rate
+      const savingsC = futureValueLumpSum(inputs.currentSavings, 0.05, yr) + futureValueAnnuity(monthlySurplus, 0.05, yr);
+      const savingsM = futureValueLumpSum(inputs.currentSavings, 0.07, yr) + futureValueAnnuity(monthlySurplus, 0.07, yr);
+      const savingsO = futureValueLumpSum(inputs.currentSavings, 0.09, yr) + futureValueAnnuity(monthlySurplus, 0.09, yr);
+
+      // Remaining debt balance at this year
+      let debtRemaining = inputs.debtBalance;
       for (let m = 0; m < yr * 12; m++) {
         if (debtRemaining <= 0) break;
-        const interest = debtRemaining * monthlyRate;
+        const interest = debtRemaining * debtMonthlyRate;
         debtRemaining  = Math.max(0, debtRemaining - (payment - interest));
       }
-      const annualSurplus = Math.max(0, projection.netSurplus) * 12;
-      const savingsGrowth = inputs.currentSavings + annualSurplus * yr;
+
       data.push({
         year:         yr === 0 ? 'Now' : `Yr ${yr}`,
-        Conservative: Math.round(savingsGrowth + conservative - debtRemaining),
-        Moderate:     Math.round(savingsGrowth + moderate     - debtRemaining),
-        Optimistic:   Math.round(savingsGrowth + optimistic   - debtRemaining),
+        Conservative: Math.round(savingsC + investC - debtRemaining),
+        Moderate:     Math.round(savingsM + investM - debtRemaining),
+        Optimistic:   Math.round(savingsO + investO - debtRemaining),
       });
     }
     return data;
@@ -557,11 +604,14 @@ export default function AnalyticsReportsPage() {
             color={projection.savingsRate >= 0.15 ? GREEN : '#d97706'}
             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>}
             tooltipLines={[
-              { label: 'Gross surplus',  value: formatCurrency(projection.monthlyRemaining) },
-              { op: '÷', label: 'Monthly income', value: formatCurrency(inputs.monthlyIncome) },
-              { op: '=', label: 'Savings rate',   value: formatPercent(projection.savingsRate), result: true },
+              { label: 'Income',         value: formatCurrency(inputs.monthlyIncome) },
+              { op: '−', label: 'Expenses',        value: formatCurrency(inputs.monthlyExpenses) },
+              { op: '−', label: 'Debt payment',    value: formatCurrency(inputs.debtMonthlyPayment) },
+              { op: '−', label: 'Investment',      value: formatCurrency(inputs.monthlyInvestment) },
+              { op: '÷', label: 'Income again',    value: formatCurrency(inputs.monthlyIncome) },
+              { op: '=', label: 'Savings rate',    value: formatPercent(projection.savingsRate), result: true },
             ]}
-            tooltipNote="Target: 15% minimum. 20%+ puts you on the strong path."
+            tooltipNote="Net surplus ÷ income. Target: 15% minimum. 20%+ = strong path."
           />
 
           <StatCard
@@ -587,6 +637,14 @@ export default function AnalyticsReportsPage() {
             question="Where does your money go each month?"
             insight={surplusInsight}
           >
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: analyticsData?.monthlyTrend?.length ? GREEN : AMBER }} />
+              <span className="text-xs font-medium" style={{ color: analyticsData?.monthlyTrend?.length ? '#15803d' : '#92400e' }}>
+                {analyticsData?.monthlyTrend?.length
+                  ? `Real expenses from transactions + 3-month projection — income from Plan`
+                  : 'Projected from Plan inputs — import transactions for real data'}
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={cashFlowData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
@@ -595,20 +653,23 @@ export default function AnalyticsReportsPage() {
                 <RechartsTooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="Income"   stroke={BLUE}  fill="rgba(37,99,235,0.12)"  strokeWidth={2} name="Income"   />
                 <Area type="monotone" dataKey="Expenses" stroke={RED}   fill="rgba(239,68,68,0.10)"  strokeWidth={2} name="Expenses" />
-                <Area type="monotone" dataKey="Surplus"  stroke={GREEN} fill="rgba(22,163,74,0.12)"  strokeWidth={2} name="Surplus"  />
+                <Area type="monotone" dataKey="Surplus"  stroke={GREEN} fill="rgba(22,163,74,0.12)"  strokeWidth={2} name="Net Surplus" />
               </AreaChart>
             </ResponsiveContainer>
-            <div className="flex items-center gap-5 mt-3 justify-center">
-              {[{ color: BLUE, label: 'Income' }, { color: RED, label: 'Expenses' }, { color: GREEN, label: 'Surplus' }].map((item) => (
+            <div className="flex items-center gap-5 mt-3 justify-center flex-wrap">
+              {[{ color: BLUE, label: 'Income' }, { color: RED, label: 'Expenses' }, { color: GREEN, label: 'Net Surplus' }].map((item) => (
                 <div key={item.label} className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: item.color }} />
                   <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{item.label}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>— — Projected</span>
+              </div>
             </div>
           </ChartCard>
 
-          {/* Chart 2: Spending Breakdown */}
+          {/* Chart 2: Spending Breakdown — real data only */}
           <ChartCard
             question="What are your biggest expense categories?"
             insight={spendingInsight}
@@ -618,14 +679,12 @@ export default function AnalyticsReportsPage() {
                 <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: GREEN, borderTopColor: 'transparent' }} />
                 <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Loading transaction data…</span>
               </div>
-            ) : spendingData.length > 0 ? (
+            ) : isRealSpendingData && spendingData.length > 0 ? (
               <div>
                 <div className="mb-2 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: isRealSpendingData ? GREEN : AMBER }} />
-                  <span className="text-xs font-medium" style={{ color: isRealSpendingData ? '#15803d' : '#92400e' }}>
-                    {isRealSpendingData
-                      ? `Real data — ${analyticsData!.totalTransactions} transactions, ${analyticsData!.monthsAnalyzed}-month avg`
-                      : <><a href="/transactions" style={{ color: '#d97706', textDecoration: 'underline' }}>Import transactions</a> for real data — showing estimates</>}
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: GREEN }} />
+                  <span className="text-xs font-medium" style={{ color: '#15803d' }}>
+                    Real data — {analyticsData!.totalTransactions} transactions, {analyticsData!.monthsAnalyzed}-month avg
                   </span>
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-4">
@@ -651,8 +710,27 @@ export default function AnalyticsReportsPage() {
                 </div>
               </div>
             ) : (
-              <div className="py-10 text-center">
-                <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Add monthly expenses in the Plan or import transactions to see a breakdown.</p>
+              <div className="py-12 flex flex-col items-center justify-center text-center gap-4">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#F1F5F9' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" />
+                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#334155' }}>No transaction data yet</p>
+                  <p className="text-xs mt-1" style={{ color: '#64748B' }}>
+                    Import a bank CSV or Excel file to see exactly where your money goes.
+                  </p>
+                </div>
+                <a
+                  href="/transactions"
+                  className="btn btn-primary btn-sm"
+                >
+                  Import transactions
+                </a>
               </div>
             )}
           </ChartCard>
@@ -663,6 +741,13 @@ export default function AnalyticsReportsPage() {
             insight={debtInsight}
           >
             {inputs.debtBalance > 0 && debtData.length > 0 ? (
+              <>
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: AMBER }} />
+                <span className="text-xs font-medium" style={{ color: '#92400e' }}>
+                  Projected from Plan — {formatCurrency(inputs.debtBalance)} balance at {(inputs.debtAnnualRate * 100).toFixed(0)}% APR, {formatCurrency(inputs.debtMonthlyPayment)}/mo payment
+                </span>
+              </div>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={debtData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
@@ -672,6 +757,7 @@ export default function AnalyticsReportsPage() {
                   <Area type="monotone" dataKey="Balance" stroke={AMBER} fill="rgba(245,158,11,0.12)" strokeWidth={2} name="Debt Balance" />
                 </AreaChart>
               </ResponsiveContainer>
+              </>
             ) : (
               <div className="py-10 text-center">
                 <div className="icon-box icon-box-lg icon-box-green mx-auto mb-3">
@@ -690,21 +776,29 @@ export default function AnalyticsReportsPage() {
             question="How fast is your wealth growing?"
             insight={netWorthInsight}
           >
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: TEAL }} />
+              <span className="text-xs font-medium" style={{ color: '#0f766e' }}>
+                Projected from Plan — {formatCurrency(inputs.currentSavings)} savings, {formatCurrency(inputs.investmentBalance)} invested, {formatCurrency(inputs.monthlyInvestment)}/mo contributions, {formatCurrency(Math.max(0, projection.netSurplus))}/mo net surplus
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={netWorthData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#6b7280' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={(v) => `$${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}`} />
                 <RechartsTooltip content={<CustomTooltip />} />
-                <Line type="monotone" dataKey="Conservative" stroke={SLATE}  strokeWidth={2}   dot={false} name="Conservative (5%)" />
-                <Line type="monotone" dataKey="Moderate"     stroke={TEAL}   strokeWidth={2.5} dot={false} name="Moderate (7%)"     />
+                <Line type="monotone" dataKey="Conservative" stroke={BLUE}  strokeWidth={2}   strokeDasharray="5 3" dot={false} name="Conservative (5%)" />
+                <Line type="monotone" dataKey="Moderate"     stroke={AMBER}  strokeWidth={2.5} dot={false} name="Moderate (7%)"     />
                 <Line type="monotone" dataKey="Optimistic"   stroke={GREEN}  strokeWidth={2}   dot={false} name="Optimistic (9%)"   />
               </LineChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-5 mt-3 justify-center">
-              {[{ color: SLATE, label: 'Conservative (5%)' }, { color: TEAL, label: 'Moderate (7%)' }, { color: GREEN, label: 'Optimistic (9%)' }].map((item) => (
+              {[{ color: BLUE, label: 'Conservative (5%)', dashed: true }, { color: AMBER, label: 'Moderate (7%)' }, { color: GREEN, label: 'Optimistic (9%)' }].map((item) => (
                 <div key={item.label} className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: item.color }} />
+                  {item.dashed
+                    ? <svg width="16" height="10" viewBox="0 0 16 10"><line x1="0" y1="5" x2="16" y2="5" stroke={item.color} strokeWidth="2" strokeDasharray="4 2" /></svg>
+                    : <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: item.color }} />}
                   <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{item.label}</span>
                 </div>
               ))}

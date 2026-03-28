@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useFinancialStore } from '@/stores/useFinancialStore';
 import { generateStrategies } from '@/engine/optimizer';
 import { formatCurrency, formatMonths, cn } from '@/lib/utils';
+import { useSyncProfile } from '@/hooks/useSyncProfile';
 
 export default function DebtStrategyPage() {
+  useSyncProfile();
   const { inputs, projection } = useFinancialStore();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

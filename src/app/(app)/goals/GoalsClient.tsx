@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useFinancialStore } from '@/stores/useFinancialStore';
 import { formatCurrency, formatMonths, formatPercent, cn } from '@/lib/utils';
+import { useSyncProfile } from '@/hooks/useSyncProfile';
 import type { Goal } from '@prisma/client';
 
 // ─── Goal type config ─────────────────────────────────────────────────────────
@@ -694,6 +695,7 @@ interface Props {
 }
 
 export function GoalsClient({ goals: initialGoals }: Props) {
+  useSyncProfile();
   const [goals,    setGoals]    = useState(initialGoals);
   const [showForm, setShowForm] = useState(false);
   const { inputs, projection } = useFinancialStore();

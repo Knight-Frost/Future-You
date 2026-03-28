@@ -167,7 +167,7 @@ export function calculateProjection(
   // ── Baseline cashflow ───────────────────────────────────────────────────────
   const monthlyRemaining = monthlyIncome - monthlyExpenses;           // gross surplus (before debt & investment)
   const netSurplus       = monthlyRemaining - debtMonthlyPayment - monthlyInvestment; // true cash left after all obligations
-  const savingsRate      = monthlyIncome > 0 ? monthlyRemaining / monthlyIncome : 0;
+  const savingsRate      = monthlyIncome > 0 ? netSurplus / monthlyIncome : 0;
 
   // Free surplus available to direct toward goals (never negative)
   const surplusAfterDebt = Math.max(0, netSurplus);

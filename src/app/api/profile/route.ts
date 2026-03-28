@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest) {
         userId: session.user.id,
         monthlyIncome: snapshotInputs.monthlyIncome,
         monthlyExpenses: snapshotInputs.monthlyExpenses,
-        monthlySurplus: snapshotProjection.monthlyRemaining,
+        monthlySurplus: snapshotProjection.netSurplus,
         currentSavings: snapshotInputs.currentSavings,
         debtBalance: snapshotInputs.debtBalance,
         debtPayment: snapshotInputs.debtMonthlyPayment,

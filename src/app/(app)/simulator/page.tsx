@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFinancialStore } from '@/stores/useFinancialStore';
+import { useSyncProfile } from '@/hooks/useSyncProfile';
 import { Slider } from '@/components/ui/Slider';
 import { formatCurrency, formatMonths, formatPayoffDate, cn } from '@/lib/utils';
 import { futureValueLumpSum, futureValueAnnuity } from '@/engine/calculator';
@@ -209,6 +210,7 @@ function CategoryInsightsPanel({ spendingReduction }: { spendingReduction: numbe
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SimulatorPage() {
+  useSyncProfile();
   const { inputs, sliders, projection, updateSliders, resetSliders } = useFinancialStore();
   const [saving, setSaving] = useState(false);
   const [savedName, setSavedName] = useState('');

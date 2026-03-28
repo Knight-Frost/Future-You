@@ -13,15 +13,18 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200);
   const category = searchParams.get('category');
   const lowConfidence = searchParams.get('lowConfidence') === 'true';
+  const batchId = searchParams.get('batchId');
   const months = parseInt(searchParams.get('months') ?? '3');
 
+  // When filtering by a specific batch, skip the date cutoff so all rows in
+  // that batch are visible regardless of age.
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - months);
 
   const where = {
     userId: session.user.id,
     isDuplicate: false,
-    date: { gte: cutoff },
+    ...(batchId ? { importBatchId: batchId } : { date: { gte: cutoff } }),
     ...(category ? { OR: [{ category: category as never }, { userCategory: category as never }] } : {}),
     ...(lowConfidence ? { confidence: { lt: 60 }, userCategory: null } : {}),
   };

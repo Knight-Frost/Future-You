@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CATEGORY_META, type ExpenseCategory } from '@/engine/expense/classification';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useFinancialStore } from '@/stores/useFinancialStore';
+import * as XLSX from 'xlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -194,34 +196,322 @@ function CategoryCorrector({
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
+const PIPELINE_STEPS = [
+  {
+    color: '#6366F1',
+    bg: '#EEF2FF',
+    title: 'Normalize',
+    desc: '"AMZN Mktp US*1234X" → "Amazon"',
+  },
+  {
+    color: '#0284C7',
+    bg: '#F0F9FF',
+    title: 'Classify',
+    desc: 'Matched to one of 9 categories with an explanation',
+  },
+  {
+    color: '#059669',
+    bg: '#F0FDF4',
+    title: 'Deduplicate',
+    desc: 'SHA-256 hash prevents re-importing the same row twice',
+  },
+];
+
+const BANK_STEPS = [
+  { bank: 'Chase', path: 'Account → Statements → Download → CSV' },
+  { bank: 'Bank of America', path: 'Account Activity → Download → CSV' },
+  { bank: 'Capital One', path: 'Transactions → Download → CSV' },
+  { bank: 'Wells Fargo', path: 'Transactions → Export → CSV' },
+  { bank: 'Any other bank', path: 'Look for "Export", "Download", or "Statement"' },
+];
+
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
-    <div className="card p-12 text-center">
-      <div className="icon-box icon-box-lg icon-box-blue mx-auto mb-4">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
-        </svg>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Left — CTA + pipeline */}
+      <div className="card p-8 flex flex-col">
+        {/* Hero */}
+        <div className="mb-6">
+          <div className="icon-box icon-box-lg icon-box-blue mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </div>
+          <h3 className="heading-card mb-2">Connect your spending</h3>
+          <p className="body-sm">
+            Import a bank or credit card CSV and every transaction is automatically named, categorized, and explained — in seconds.
+          </p>
+        </div>
+
+        {/* Pipeline steps */}
+        <div className="space-y-3 mb-8">
+          {PIPELINE_STEPS.map((step, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold"
+                style={{ background: step.bg, color: step.color }}
+              >
+                {i + 1}
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>{step.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>{step.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Feature badges */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {[
+            { label: '9 categories', color: '#6366F1', bg: '#EEF2FF' },
+            { label: 'Auto-explained', color: '#0284C7', bg: '#F0F9FF' },
+            { label: 'Confidence scored', color: '#D97706', bg: '#FFFBEB' },
+            { label: 'Learns corrections', color: '#059669', bg: '#F0FDF4' },
+          ].map((badge) => (
+            <span
+              key={badge.label}
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ background: badge.bg, color: badge.color }}
+            >
+              {badge.label}
+            </span>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="mt-auto">
+          <button
+            onClick={onImport}
+            className="btn btn-primary w-full flex items-center justify-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Import
+          </button>
+          <p className="text-center text-xs mt-2" style={{ color: '#94A3B8' }}>
+            Supports .csv and .xlsx files from any bank
+          </p>
+        </div>
       </div>
-      <h3 className="heading-card mb-2">No transactions yet</h3>
-      <p className="body-sm mb-6 max-w-sm mx-auto">
-        Import a bank or credit card CSV to see your spending categorized automatically. Every transaction will be explained.
-      </p>
-      <button onClick={onImport} className="btn btn-primary mx-auto">
-        Import transactions
-      </button>
-      <div className="mt-6 rounded-lg p-4 text-left max-w-sm mx-auto" style={{ background: '#F8FAFF', border: '1px solid #EEF2FF' }}>
-        <p className="text-xs font-semibold text-[#334155] mb-2">How to export from your bank:</p>
-        <ul className="text-xs text-[#64748B] space-y-1">
-          <li>• Chase: Account → Download → CSV</li>
-          <li>• Bank of America: Account Activity → Export</li>
-          <li>• Capital One: Transactions → Download CSV</li>
-          <li>• Most banks: Look for "Export", "Download", or "Statement" options</li>
-        </ul>
+
+      {/* Right — bank export guide + sample */}
+      <div className="flex flex-col gap-5">
+        {/* Bank export guide */}
+        <div className="card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: '#F0F9FF' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h4 className="text-sm font-bold" style={{ color: '#0F172A' }}>How to export from your bank</h4>
+          </div>
+          <div className="space-y-3">
+            {BANK_STEPS.map((s, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span
+                  className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5"
+                  style={{ background: '#F1F5F9', color: '#475569' }}
+                >
+                  {s.bank}
+                </span>
+                <p className="text-xs" style={{ color: '#64748B' }}>{s.path}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* What you'll see */}
+        <div className="card p-6 flex-1 flex flex-col">
+          <h4 className="text-sm font-bold mb-4" style={{ color: '#0F172A' }}>What each row shows after import</h4>
+          <div className="space-y-3 flex-1">
+            {[
+              { icon: '🏷️', label: 'Merchant name', desc: 'Cleaned and normalised from raw bank text' },
+              { icon: '💰', label: 'Amount', desc: 'Exact amount from your statement' },
+              { icon: '🗂️', label: 'Category', desc: 'Auto-classified into one of 9 spending categories' },
+              { icon: '✅', label: 'Confidence score', desc: 'How certain the classifier is — correct any mismatches' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-start gap-3">
+                <span className="text-base leading-none mt-0.5">{item.icon}</span>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: '#0F172A' }}>{item.label}</p>
+                  <p className="text-[11px] leading-snug" style={{ color: '#64748B' }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-center mt-4 pt-3" style={{ color: '#94A3B8', borderTop: '1px solid #F1F5F9' }}>
+            Your real data will appear here after import
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Import history panel ─────────────────────────────────────────────────────
+
+interface ImportBatch {
+  batchId: string;
+  importedAt: string;
+  transactionCount: number;
+  totalSpend: number;
+  earliestDate: string;
+  latestDate: string;
+  importSource: string;
+}
+
+function ImportHistory({
+  batches,
+  activeBatch,
+  onSelectBatch,
+  onDeleteBatch,
+  deletingBatch,
+}: {
+  batches: ImportBatch[];
+  activeBatch: string | null;
+  onSelectBatch: (batchId: string | null) => void;
+  onDeleteBatch: (batchId: string) => void;
+  deletingBatch: string | null;
+}) {
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  if (batches.length === 0) return null;
+
+  return (
+    <div className="card overflow-hidden">
+      <div
+        className="px-5 py-3 flex items-center justify-between"
+        style={{ background: '#F8FAFF', borderBottom: '1px solid var(--border)' }}
+      >
+        <div className="flex items-center gap-2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#334155' }}>
+            Import History — {batches.length} {batches.length === 1 ? 'import' : 'imports'}
+          </span>
+        </div>
+        {activeBatch && (
+          <button
+            onClick={() => onSelectBatch(null)}
+            className="text-xs font-semibold"
+            style={{ color: '#6366F1' }}
+          >
+            Show all transactions
+          </button>
+        )}
+      </div>
+
+      <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+        {batches.map((batch) => {
+          const isActive = activeBatch === batch.batchId;
+          const isDeleting = deletingBatch === batch.batchId;
+          const isConfirming = confirmId === batch.batchId;
+
+          const importedAt = new Date(batch.importedAt);
+          const earliest = new Date(batch.earliestDate);
+          const latest = new Date(batch.latestDate);
+          const dateRange = earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+            (earliest.toDateString() !== latest.toDateString()
+              ? ' – ' + latest.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : ', ' + earliest.getFullYear());
+
+          return (
+            <div
+              key={batch.batchId}
+              className={cn(
+                'flex items-center gap-4 px-5 py-3 transition-colors',
+                isActive ? 'bg-[#EEF2FF]' : 'hover:bg-[#F8FAFF]',
+              )}
+            >
+              {/* Select batch filter */}
+              <button
+                onClick={() => onSelectBatch(isActive ? null : batch.batchId)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: isActive ? '#6366F1' : '#EEF2FF' }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={isActive ? '#fff' : '#6366F1'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold" style={{ color: isActive ? '#4338CA' : '#0F172A' }}>
+                      {batch.transactionCount} transactions
+                    </span>
+                    <span className="text-xs tabular-nums" style={{ color: '#64748B' }}>
+                      {dateRange}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs font-bold" style={{ color: isActive ? '#4338CA' : '#334155' }}>
+                      ${batch.totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[10px]" style={{ color: '#94A3B8' }}>
+                      Imported {importedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {importedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Delete controls */}
+              <div className="shrink-0 flex items-center gap-2">
+                {isConfirming ? (
+                  <>
+                    <span className="text-xs text-[#EF4444] font-semibold">Delete this import?</span>
+                    <button
+                      onClick={() => { onDeleteBatch(batch.batchId); setConfirmId(null); }}
+                      disabled={isDeleting}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold text-white transition-opacity"
+                      style={{ background: '#EF4444', opacity: isDeleting ? 0.6 : 1 }}
+                    >
+                      {isDeleting ? 'Deleting…' : 'Yes, delete'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmId(null)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                      style={{ background: '#F1F5F9', color: '#64748B' }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmId(batch.batchId)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[#FEF2F2] group"
+                    style={{ background: 'transparent' }}
+                    title="Delete this import"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#EF4444] transition-colors">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M9 6V4h6v2" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -230,6 +520,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
+  const { syncFromProfile } = useFinancialStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
@@ -237,8 +528,21 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [importResult, setImportResult] = useState<{ imported: number; lowConfidence: number; duplicates: number } | null>(null);
+  const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [activeBatch, setActiveBatch] = useState<string | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState<string | null>(null);
 
   const LIMIT = 50;
+
+  const fetchBatches = useCallback(async () => {
+    try {
+      const res = await fetch('/api/transactions/batches');
+      if (res.ok) {
+        const data = await res.json();
+        setBatches(data.data ?? []);
+      }
+    } catch { /* non-critical */ }
+  }, []);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -248,6 +552,7 @@ export default function TransactionsPage() {
         limit: String(LIMIT),
         ...(filter !== 'ALL' && filter !== 'LOW_CONFIDENCE' ? { category: filter } : {}),
         ...(filter === 'LOW_CONFIDENCE' ? { lowConfidence: 'true' } : {}),
+        ...(activeBatch ? { batchId: activeBatch } : {}),
       });
       const res = await fetch(`/api/transactions?${params}`);
       if (!res.ok) { setTransactions([]); setTotal(0); return; }
@@ -260,9 +565,9 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filter]);
+  }, [page, filter, activeBatch]);
 
-  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+  useEffect(() => { fetchTransactions(); fetchBatches(); }, [fetchTransactions, fetchBatches]);
 
   const handleCSVImport = async (csvText: string) => {
     try {
@@ -275,8 +580,61 @@ export default function TransactionsPage() {
       setImportResult({ imported: data.imported ?? 0, lowConfidence: data.lowConfidence ?? 0, duplicates: data.duplicates ?? 0 });
       setShowImport(false);
       fetchTransactions();
+      fetchBatches();
+
+      // Sync updated expense totals into the Zustand store so Dashboard,
+      // Simulator, Goals, and Debt pages reflect the real imported data immediately.
+      try {
+        const profileRes = await fetch('/api/profile');
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          const p = profileData.data;
+          if (p) {
+            syncFromProfile({
+              monthlyIncome:      p.monthlyIncome,
+              monthlyExpenses:    p.monthlyExpenses,
+              currentSavings:     p.currentSavings,
+              debtBalance:        p.debtBalance,
+              debtMonthlyPayment: p.debtMonthlyPayment,
+              debtAnnualRate:     p.debtAnnualRate,
+              monthlyInvestment:  p.monthlyInvestment,
+              investmentBalance:  p.investmentBalance,
+            });
+          }
+        }
+      } catch {
+        // Non-critical — projections will sync on next Dashboard visit
+      }
     } catch {
       // Error shown in CSVImport modal
+    }
+  };
+
+  const handleDeleteBatch = async (batchId: string) => {
+    setDeletingBatch(batchId);
+    try {
+      await fetch(`/api/transactions/batches/${batchId}`, { method: 'DELETE' });
+      // If we were viewing this batch, clear the filter
+      if (activeBatch === batchId) setActiveBatch(null);
+      // Refresh everything
+      await Promise.all([fetchBatches(), fetchTransactions()]);
+      // Re-sync the store so projections reflect the deletion
+      const profileRes = await fetch('/api/profile');
+      if (profileRes.ok) {
+        const { data: p } = await profileRes.json();
+        if (p) syncFromProfile({
+          monthlyIncome:      p.monthlyIncome,
+          monthlyExpenses:    p.monthlyExpenses,
+          currentSavings:     p.currentSavings,
+          debtBalance:        p.debtBalance,
+          debtMonthlyPayment: p.debtMonthlyPayment,
+          debtAnnualRate:     p.debtAnnualRate,
+          monthlyInvestment:  p.monthlyInvestment,
+          investmentBalance:  p.investmentBalance,
+        });
+      }
+    } catch { /* silently ignore */ } finally {
+      setDeletingBatch(null);
     }
   };
 
@@ -307,7 +665,7 @@ export default function TransactionsPage() {
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          Import CSV
+          Import
         </button>
       </div>
 
@@ -363,6 +721,17 @@ export default function TransactionsPage() {
             Review now
           </button>
         </div>
+      )}
+
+      {/* Import history */}
+      {batches.length > 0 && (
+        <ImportHistory
+          batches={batches}
+          activeBatch={activeBatch}
+          onSelectBatch={(id) => { setActiveBatch(id); setPage(1); setFilter('ALL'); }}
+          onDeleteBatch={handleDeleteBatch}
+          deletingBatch={deletingBatch}
+        />
       )}
 
       {/* Filter tabs */}
@@ -554,22 +923,47 @@ function CSVImportPipelineModal({
   const [preview, setPreview] = useState<{ rowCount: number } | null>(null);
 
   const handleFile = (f: File) => {
-    if (!f.name.match(/\.(csv|txt)$/i)) {
-      setError('Please upload a .csv file. Excel files must first be saved as CSV (File → Save As → CSV).');
+    if (!f.name.match(/\.(csv|txt|xlsx|xls)$/i)) {
+      setError('Please upload a .csv or .xlsx file exported from your bank.');
       return;
     }
     setLoading(true);
     setError(null);
+
+    const isExcel = f.name.match(/\.(xlsx|xls)$/i);
     const reader = new FileReader();
+
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.trim().split('\n').filter(Boolean);
-      setCsvText(text);
-      setFileName(f.name);
-      setPreview({ rowCount: Math.max(0, lines.length - 1) });
-      setLoading(false);
+      try {
+        let csvOutput: string;
+
+        if (isExcel) {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          // Use the first sheet
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          csvOutput = XLSX.utils.sheet_to_csv(sheet);
+        } else {
+          csvOutput = e.target?.result as string;
+        }
+
+        const lines = csvOutput.trim().split('\n').filter(Boolean);
+        setCsvText(csvOutput);
+        setFileName(f.name);
+        setPreview({ rowCount: Math.max(0, lines.length - 1) });
+      } catch {
+        setError('Could not read this file. Make sure it is a valid .csv or .xlsx export from your bank.');
+      } finally {
+        setLoading(false);
+      }
     };
-    reader.readAsText(f);
+
+    if (isExcel) {
+      reader.readAsArrayBuffer(f);
+    } else {
+      reader.readAsText(f);
+    }
   };
 
   const handleImport = async () => {
@@ -633,7 +1027,7 @@ function CSVImportPipelineModal({
             >
               <input
                 type="file"
-                accept=".csv,.txt"
+                accept=".csv,.txt,.xlsx,.xls"
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
               />
@@ -645,8 +1039,8 @@ function CSVImportPipelineModal({
                 </svg>
               </div>
               <div className="text-center">
-                <p className="text-sm font-semibold text-[#0F172A]">Click to choose a CSV file</p>
-                <p className="text-xs text-[#64748B] mt-1">Export from Chase, BofA, Capital One, or any bank</p>
+                <p className="text-sm font-semibold text-[#0F172A]">Click to choose a CSV or Excel file</p>
+                <p className="text-xs text-[#64748B] mt-1">CSV or Excel (.xlsx) from Chase, BofA, Capital One, or any bank</p>
               </div>
             </label>
           ) : (

@@ -58,7 +58,7 @@ function formatShortCurrency(n: number): string {
 
 /**
  * Build a smart subtitle list from the user's real financial data.
- * The most urgent / relevant messages are pushed to the front.
+ * All entries are data-driven when a profile exists — no generic fallbacks.
  */
 function buildSubtitles(props: FinancialGreetingProps): string[] {
   const {
@@ -72,93 +72,97 @@ function buildSubtitles(props: FinancialGreetingProps): string[] {
     aiInsight,
   } = props;
 
-  // ── Baseline motivational subtitles (always present) ──────────────────────
-  const baseline: string[] = [
-    'Your future is being built right now.',
-    'Every smart decision compounds over time.',
-    'Small changes today, massive results tomorrow.',
-    'Financial freedom starts with a single decision.',
-  ];
-
-  // No profile yet — keep it simple
+  // No profile yet — onboarding prompts only
   if (!hasProfile) {
     return [
-      'Set up your profile to get personalized insights.',
-      'Your financial future starts here.',
-      'A few minutes of setup unlocks your full picture.',
-      ...baseline,
+      'Set up your profile to see your real financial picture.',
+      'A few minutes of setup unlocks your full projection.',
+      'Your financial future starts with a single decision.',
     ];
   }
 
   const smart: string[] = [];
 
-  // ── AI insight teaser ──────────────────────────────────────────────────────
-  if (aiInsight && aiInsight.length > 0) {
-    // Trim to a short teaser if it's long
-    const teaser = aiInsight.length > 80
-      ? aiInsight.slice(0, aiInsight.lastIndexOf(' ', 80)) + '…'
-      : aiInsight;
-    smart.push(teaser);
-  }
-
-  // ── Health-based signals ───────────────────────────────────────────────────
+  // ── Health-based lead (most urgent first) ─────────────────────────────────
   if (healthStatus === 'critical') {
-    smart.push('Your plan needs urgent attention — start with the action below.');
+    smart.push('Your plan needs urgent attention — review the action below now.');
   } else if (healthStatus === 'attention') {
-    smart.push('A few key changes could significantly improve your trajectory.');
+    smart.push('A few targeted changes could significantly improve your trajectory.');
   } else if (healthStatus === 'strong') {
-    smart.push('Your finances are on a strong track. Keep the momentum going.');
+    smart.push("Your finances are on a strong track — keep the momentum going.");
+  } else {
+    smart.push("Your finances are healthy — here's how to optimize further.");
   }
 
   // ── Surplus / deficit ─────────────────────────────────────────────────────
   if (netSurplus < 0) {
-    smart.push(`Your expenses exceed income by ${formatShortCurrency(Math.abs(netSurplus))}/mo — let's fix that.`);
+    smart.push(`Expenses exceed income by ${formatShortCurrency(Math.abs(netSurplus))}/mo — reduce spending or boost income.`);
+  } else if (netSurplus >= 500) {
+    smart.push(`${formatShortCurrency(netSurplus)}/mo surplus. Put it to work — open the Simulator to see how.`);
   } else if (netSurplus > 0) {
-    smart.push(`${formatShortCurrency(netSurplus)}/mo surplus — put it to work in the Simulator.`);
+    smart.push(`${formatShortCurrency(netSurplus)}/mo surplus. Every dollar directed intentionally compounds over time.`);
   }
 
   // ── Debt signals ──────────────────────────────────────────────────────────
   if (debtBalance <= 0) {
-    smart.push("You're debt-free. Time to accelerate wealth building.");
-  } else if (isFinite(debtPayoffMonths)) {
-    const years = Math.floor(debtPayoffMonths / 12);
-    const months = Math.round(debtPayoffMonths % 12);
-    const label = years > 0
-      ? `${years}y ${months}mo`
-      : `${months} month${months !== 1 ? 's' : ''}`;
-    smart.push(`Debt-free in ${label} at your current pace.`);
+    smart.push("You're debt-free. Redirect what you were paying toward investments now.");
+  } else if (!isFinite(debtPayoffMonths)) {
+    smart.push('Your debt payment is too low to cover interest — increase it to stop the bleed.');
   } else {
-    smart.push('Increase your debt payment to escape the interest trap.');
+    const years = Math.floor(debtPayoffMonths / 12);
+    const mos = Math.round(debtPayoffMonths % 12);
+    const label = years > 0 ? `${years}yr ${mos}mo` : `${mos} month${mos !== 1 ? 's' : ''}`;
+    smart.push(`At this pace, you'll be debt-free in ${label}. Increase payments to get there sooner.`);
   }
 
-  // ── Net worth milestone ───────────────────────────────────────────────────
-  if (netWorth > 0) {
-    smart.push(`Net worth: ${formatShortCurrency(netWorth)}. Keep compounding.`);
+  // ── Net worth ─────────────────────────────────────────────────────────────
+  if (netWorth < 0) {
+    smart.push(`Net worth is ${formatShortCurrency(Math.abs(netWorth))} negative — debt reduction is the highest-return move right now.`);
+  } else if (netWorth >= 10_000) {
+    smart.push(`Net worth: ${formatShortCurrency(netWorth)}. Compound growth accelerates from here.`);
+  } else if (netWorth > 0) {
+    smart.push(`Net worth: ${formatShortCurrency(netWorth)}. Building steadily — stay consistent.`);
   }
 
   // ── Goal ──────────────────────────────────────────────────────────────────
   if (goalName) {
-    smart.push(`Working toward: ${goalName}.`);
+    smart.push(`Goal in progress: ${goalName}. Check Goals to see your projected timeline.`);
   }
 
-  return [...smart, ...baseline];
+  // ── AI insight teaser (appended last — shows after real data context) ──────
+  if (aiInsight && aiInsight.length > 0) {
+    const teaser = aiInsight.length > 90
+      ? aiInsight.slice(0, aiInsight.lastIndexOf(' ', 90)) + '…'
+      : aiInsight;
+    smart.push(teaser);
+  }
+
+  return smart;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FinancialGreeting(props: FinancialGreetingProps) {
-  const { firstName } = props;
+  const { firstName, netSurplus, netWorth, debtBalance, healthStatus, hasProfile } = props;
   const subtitles = buildSubtitles(props);
 
   const [subtitleIndex, setSubtitleIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Reset to the first (most urgent) subtitle whenever key financial data changes.
+  // This ensures the greeting always leads with real, current information.
+  useEffect(() => {
+    setVisible(false);
+    const t = setTimeout(() => { setSubtitleIndex(0); setVisible(true); }, 400);
+    return () => clearTimeout(t);
+  }, [netSurplus, netWorth, debtBalance, healthStatus, hasProfile]);
+
   useEffect(() => {
     if (subtitles.length <= 1) return;
 
+    if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      // Fade out → swap text → fade in
       setVisible(false);
       setTimeout(() => {
         setSubtitleIndex((i) => (i + 1) % subtitles.length);
@@ -169,11 +173,17 @@ export function FinancialGreeting(props: FinancialGreetingProps) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  // Rebuild interval if the number of subtitles changes (e.g. AI insight arrives)
+  // Restart interval whenever subtitle content changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtitles.length]);
+  }, [subtitles.length, netSurplus, netWorth, debtBalance, healthStatus]);
 
-  const greeting = getTimeGreeting();
+  const [greeting, setGreeting] = useState('');
+  useEffect(() => {
+    setGreeting(getTimeGreeting());
+    // Refresh every minute so it transitions correctly (e.g. 11:59 → 12:00)
+    const tick = setInterval(() => setGreeting(getTimeGreeting()), 60_000);
+    return () => clearInterval(tick);
+  }, []);
 
   return (
     <div
