@@ -328,7 +328,7 @@ POST /api/ai/insights called [asynchronous]
   body = { inputs, projection, ruleInsight }
          |
          v
-Claude Haiku 4.5 responds [~500-1500ms]
+Insights service responds [~500-1500ms]
          |
          v
 Insight panel updated with AI text

@@ -16,7 +16,7 @@
 | Database | PostgreSQL | 15+ | Relational persistence for users, goals, and transactions |
 | ORM | Prisma | 5 | Type-safe query client with auto-generated types |
 | Client State | Zustand | 5 | Lightweight reactive store with localStorage persistence |
-| AI | Anthropic API (Haiku 4.5) | — | Server-side only; key is never exposed to the browser |
+| AI | Inference API | — | Server-side only; key is never exposed to the browser |
 
 ---
 
@@ -25,7 +25,7 @@
 - Node.js 18.17 or later
 - npm 9 or later
 - PostgreSQL 15 or later (local or hosted)
-- An Anthropic API key (required for AI insights; rule-based insights work without it)
+- An insights API key (required for personalized insights; rule-based insights work without it)
 
 ---
 
@@ -52,9 +52,9 @@ Edit `.env.local` with the following values:
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/futureyou` |
 | `AUTH_SECRET` | Random secret for JWT signing | Output of `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Base URL of the application | `http://localhost:3000` |
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI insights | `sk-ant-...` |
+| `INSIGHTS_API_KEY` | API key for personalized insights | `sk-...` |
 
-The `ANTHROPIC_API_KEY` is optional for development. Without it, the AI insight layer will be skipped and rule-based insights will remain visible.
+The `INSIGHTS_API_KEY` is optional for development. Without it, the personalized insight layer will be skipped and rule-based insights will remain visible.
 
 ### 3. Set up the database
 
@@ -141,7 +141,7 @@ Set the following in the Vercel project dashboard under Settings > Environment V
 | `DATABASE_URL` | Production PostgreSQL connection string |
 | `AUTH_SECRET` | Random 32-byte secret (`openssl rand -base64 32`) |
 | `NEXTAUTH_URL` | Production URL (e.g., `https://futureyou.vercel.app`) |
-| `ANTHROPIC_API_KEY` | Production Anthropic API key |
+| `INSIGHTS_API_KEY` | Production insights API key |
 
 #### Step 4 — Apply schema to production
 
@@ -252,7 +252,7 @@ Future-You/
 
 ### Why Next.js over a separate frontend/backend
 
-Next.js App Router eliminates CORS configuration, simplifies deployment to a single process, and provides server components for fast initial renders. API routes give the backend access needed for database queries and the Anthropic API key without a separate Express server.
+Next.js App Router eliminates CORS configuration, simplifies deployment to a single process, and provides server components for fast initial renders. API routes give the backend access needed for database queries and the insights API key without a separate Express server.
 
 ### Why Zustand over React Context
 
@@ -293,7 +293,7 @@ Animations use a CSS `pageIn` keyframe applied to the inner `<div>` of each page
 
 | Concern | Mitigation |
 |---|---|
-| API key exposure | `ANTHROPIC_API_KEY` is read server-side only; never included in client bundles |
+| API key exposure | `INSIGHTS_API_KEY` is read server-side only; never included in client bundles |
 | Route protection | `src/middleware.ts` enforces authentication on all app and onboarding routes |
 | Password storage | Passwords are hashed using bcrypt before storage in `User.passwordHash` |
 | Session integrity | JWT sessions are signed with `AUTH_SECRET`; secret rotation invalidates all sessions |

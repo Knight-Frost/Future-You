@@ -580,7 +580,7 @@ Deletes a user-defined classification rule.
 
 ### POST /api/ai/insights
 
-Generates a personalized financial insight using the Anthropic API. This route is called by the client after an 800ms debounce following user interaction.
+Generates a personalized financial insight using the server-side inference layer. This route is called by the client after an 800ms debounce following user interaction.
 
 **Authentication required:** Yes
 
@@ -602,9 +602,8 @@ Generates a personalized financial insight using the Anthropic API. This route i
 }
 ```
 
-If the Anthropic API is unavailable, the route returns HTTP 200 with `insight: null` rather than an error, allowing the client to keep the rule-based insight visible.
+If the inference service is unavailable, the route returns HTTP 200 with `insight: null` rather than an error, allowing the client to keep the rule-based insight visible.
 
-**Model used:** `claude-haiku-4-5`
 **Max tokens:** 200
 
 ---

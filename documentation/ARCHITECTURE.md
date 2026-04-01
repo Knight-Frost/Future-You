@@ -66,7 +66,7 @@ Data flows in one direction. The Financial Engine is pure — given the same inp
 | Financial Engine | TypeScript (pure functions) | Computes projections, amortization, strategies, and insights synchronously from state |
 | UI | Next.js / React | Renders results reactively; re-renders only components whose inputs have changed |
 | API Routes | Next.js Route Handlers | Handles authentication, database operations, and server-side AI calls |
-| AI Layer | Anthropic API (server-side) | Generates personalized 2-3 sentence insight after an 800ms debounce; non-blocking |
+| AI Layer | Inference API (server-side) | Generates personalized 2-3 sentence insight after an 800ms debounce; non-blocking |
 | Database | PostgreSQL + Prisma | Persists user profiles, goals, snapshots, transactions, and settings |
 | Authentication | NextAuth v5 | JWT sessions with credentials provider; route protection via middleware |
 
@@ -109,8 +109,7 @@ The AI path runs after the synchronous path has already rendered. It does not bl
 [2] POST /api/ai/insights
          |  body: { inputs, projection, ruleInsight }
          v
-[3] Server authenticates request, calls Anthropic API
-         |  model: claude-haiku-4-5
+[3] Server authenticates request, calls Insights API
          |  max_tokens: 200
          v
 [4] Personalized insight returned as plain text
@@ -119,7 +118,7 @@ The AI path runs after the synchronous path has already rendered. It does not bl
 [5] Insight card updates in place (non-blocking)
 ```
 
-If the Anthropic API is unavailable, step 5 is skipped and the rule-based insight (rendered in step 5 of the synchronous path) remains visible.
+If the Insights API is unavailable, step 5 is skipped and the rule-based insight (rendered in step 5 of the synchronous path) remains visible.
 
 ### 4.3 Persistence Path (On User Action)
 

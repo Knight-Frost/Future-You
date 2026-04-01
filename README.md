@@ -171,7 +171,7 @@ User Input / Slider Change
 
 ### AI Layer
 
-The AI layer uses Claude Haiku 4.5 via a server-side API route. The key is never exposed to the browser. The AI receives the full financial context including the rule-based insight and returns a 2-3 sentence personalized recommendation. If the API is unavailable, the rule-based insight remains visible and the system degrades gracefully.
+The personalized insight layer runs via a server-side API route. The key is never exposed to the browser. The service receives the full financial context including the rule-based insight and returns a 2-3 sentence personalized recommendation. If the service is unavailable, the rule-based insight remains visible and the system degrades gracefully.
 
 ---
 

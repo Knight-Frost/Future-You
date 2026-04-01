@@ -158,18 +158,18 @@ All secrets are stored in environment variables. No secrets appear in source cod
 | `DATABASE_URL` | PostgreSQL connection string with credentials | Server only |
 | `AUTH_SECRET` | JWT signing secret | Server only |
 | `NEXTAUTH_URL` | Application base URL | Server only |
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI insights | Server only |
+| `INSIGHTS_API_KEY` | API key for personalized insights | Server only |
 
-### 4.2 Anthropic API Key Isolation
+### 4.2 Insights API Key Isolation
 
-The Anthropic API key is consumed exclusively inside `src/app/api/ai/insights/route.ts`, a Next.js Route Handler. Route Handlers execute only on the server and are never included in the client JavaScript bundle.
+The insights API key is consumed exclusively inside `src/app/api/ai/insights/route.ts`, a Next.js Route Handler. Route Handlers execute only on the server and are never included in the client JavaScript bundle.
 
 ```
 Browser client
   --> POST /api/ai/insights (with session cookie)
   --> Next.js server verifies session
-  --> Server reads process.env.ANTHROPIC_API_KEY
-  --> Server calls Anthropic API
+  --> Server reads process.env.INSIGHTS_API_KEY
+  --> Server calls Insights API
   --> Server returns insight text to browser
 
 The browser never sees the key at any stage of this process.
@@ -182,7 +182,7 @@ This contrasts with a pattern where the key is embedded in a Next.js API route t
 | Key | Rotation Effect |
 |---|---|
 | `AUTH_SECRET` | All active sessions are immediately invalidated; all users must log in again |
-| `ANTHROPIC_API_KEY` | AI insights stop working until the new key is deployed; rule-based insights continue functioning |
+| `INSIGHTS_API_KEY` | Personalized insights stop working until the new key is deployed; rule-based insights continue functioning |
 | `DATABASE_URL` | Application cannot connect to the database until the new URL is deployed |
 
 ---
@@ -235,7 +235,7 @@ Before deploying to a production environment, verify the following:
 |---|---|
 | `AUTH_SECRET` | Set to a randomly generated 32-byte value; not reused from development |
 | `DATABASE_URL` | Points to the production database; not a shared or development instance |
-| `ANTHROPIC_API_KEY` | Scoped to production usage limits in the Anthropic console |
+| `INSIGHTS_API_KEY` | Scoped to production usage limits in the provider console |
 | `NEXTAUTH_URL` | Set to the exact production URL including protocol (`https://`) |
 | HTTPS | Enforced at the hosting provider; HTTP requests redirected to HTTPS |
 | Database access | Database not publicly accessible; only accessible from the application server's IP or VPC |
