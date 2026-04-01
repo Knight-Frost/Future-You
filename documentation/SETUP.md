@@ -258,9 +258,9 @@ Next.js App Router eliminates CORS configuration, simplifies deployment to a sin
 
 React Context re-renders the entire consumer tree on every state change. Zustand uses selective subscriptions — a component that reads `projection.debtPayoffMonths` only re-renders when that specific value changes. This is essential for real-time slider performance.
 
-### Why the AI key is server-side only
+### Why the insights key is server-side only
 
-The Anthropic API key is read from `process.env.ANTHROPIC_API_KEY` inside a Next.js route handler (`/api/ai/insights`). It is never included in the client bundle. Exposing the key in the browser would allow any visitor to make API calls at the account's expense.
+The `INSIGHTS_API_KEY` is read from `process.env.INSIGHTS_API_KEY` inside a Next.js route handler (`/api/ai/insights`). It is never included in the client bundle. Exposing the key in the browser would allow any visitor to make API calls at the account's expense.
 
 ### Why localStorage for financial inputs
 
